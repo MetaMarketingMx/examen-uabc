@@ -1,28 +1,87 @@
-export default function PanelAlumnoPage() {
-  const materias = [
-    {
-      nombre: "Comprensión lectora",
-      progreso: 72,
-      detalle: "3 temas completados, 1 parcial disponible",
-    },
-    {
-      nombre: "Lengua escrita",
-      progreso: 58,
-      detalle: "2 temas avanzados, 1 parcial disponible",
-    },
-    {
-      nombre: "Matemáticas",
-      progreso: 41,
-      detalle: "1 tema completado, 1 parcial bloqueado",
-    },
-  ];
+import { supabase } from "@/lib/supabase";
 
-  const actividadReciente = [
-    "Completaste el tema: Idea principal",
-    "Aprobaste el Parcial 1 de Comprensión lectora",
-    "Iniciaste el tema: Coherencia",
-    "Guardaste un intento de simulador",
-  ];
+export const dynamic = "force-dynamic";
+
+const ALUMNO_EMAIL = "demo@uabc.com";
+
+type Materia = {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  orden: number;
+};
+
+type Progreso = {
+  id: number;
+  materia_id: number | null;
+  tema_id: number | null;
+  estado: string;
+  progreso: number;
+  calificacion: number | null;
+};
+
+type Resultado = {
+  id: number;
+  tipo: string;
+  referencia_id: number | null;
+  puntaje: number | null;
+  aciertos: number | null;
+  total_preguntas: number | null;
+  detalle: string | null;
+  created_at: string;
+};
+
+export default async function PanelAlumnoPage() {
+  const [
+    { data: materias, error: errorMaterias },
+    { data: progreso, error: errorProgreso },
+    { data: resultados, error: errorResultados },
+  ] = await Promise.all([
+    supabase
+      .from("materias")
+      .select("id, nombre, descripcion, orden")
+      .eq("activa", true)
+      .order("orden"),
+    supabase
+      .from("progreso_alumno")
+      .select("id, materia_id, tema_id, estado, progreso, calificacion")
+      .eq("alumno_email", ALUMNO_EMAIL)
+      .order("fecha_ultimo_avance", { ascending: false }),
+    supabase
+      .from("resultados")
+      .select("id, tipo, referencia_id, puntaje, aciertos, total_preguntas, detalle, created_at")
+      .eq("alumno_email", ALUMNO_EMAIL)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (errorMaterias || errorProgreso || errorResultados) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-white px-6 py-10">
+        <section className="mx-auto max-w-6xl">
+          <div className="rounded-3xl border border-red-500/30 bg-slate-900 p-8">
+            <h1 className="text-3xl font-bold">Error al cargar el panel</h1>
+            <p className="mt-4 text-slate-300">
+              Revisa la conexión con Supabase o las variables de entorno.
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  const materiasData = (materias ?? []) as Materia[];
+  const progresoData = (progreso ?? []) as Progreso[];
+  const resultadosData = (resultados ?? []) as Resultado[];
+
+  const temasCompletados = progresoData.filter((item) => item.estado === "completado").length;
+  const temasEnCurso = progresoData.filter((item) => item.estado === "en curso").length;
+  const promedio =
+    resultadosData.length > 0
+      ? Math.round(
+          resultadosData.reduce((acc, item) => acc + Number(item.puntaje ?? 0), 0) /
+            resultadosData.length
+        )
+      : 0;
 
   return (
     <main className="min-h-screen bg-slate-950 text-white px-6 py-10">
@@ -31,84 +90,101 @@ export default function PanelAlumnoPage() {
           <p className="text-sm uppercase tracking-[0.2em] text-sky-300">
             Panel del alumno
           </p>
-          <h1 className="mt-4 text-4xl font-bold">Bienvenido</h1>
+          <h1 className="mt-4 text-4xl font-bold">Avance general</h1>
           <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-300">
-            Aquí el alumno revisa su avance general, sus materias activas,
-            parciales disponibles y actividad reciente.
+            Vista conectada a Supabase con progreso y resultados del alumno demo.
           </p>
         </div>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-8 grid gap-6 md:grid-cols-4">
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-400">Progreso general</p>
-            <h2 className="mt-3 text-4xl font-bold">57%</h2>
-            <p className="mt-3 text-slate-300">Avance total del alumno</p>
+            <p className="text-sm text-slate-400">Materias activas</p>
+            <p className="mt-3 text-4xl font-bold">{materiasData.length}</p>
           </div>
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
             <p className="text-sm text-slate-400">Temas completados</p>
-            <h2 className="mt-3 text-4xl font-bold">12</h2>
-            <p className="mt-3 text-slate-300">Con ejercicio final resuelto</p>
+            <p className="mt-3 text-4xl font-bold">{temasCompletados}</p>
           </div>
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-400">Parciales aprobados</p>
-            <h2 className="mt-3 text-4xl font-bold">3</h2>
-            <p className="mt-3 text-slate-300">Dentro de las materias</p>
+            <p className="text-sm text-slate-400">Temas en curso</p>
+            <p className="mt-3 text-4xl font-bold">{temasEnCurso}</p>
           </div>
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-400">Mejor simulador</p>
-            <h2 className="mt-3 text-4xl font-bold">81/100</h2>
-            <p className="mt-3 text-slate-300">Último resultado guardado</p>
+            <p className="text-sm text-slate-400">Promedio</p>
+            <p className="mt-3 text-4xl font-bold">{promedio}</p>
           </div>
         </div>
 
-        <div className="mt-8 grid gap-6 xl:grid-cols-2">
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-2xl font-semibold">Materias activas</h2>
-
+            <h2 className="text-2xl font-semibold">Progreso por materia</h2>
             <div className="mt-5 space-y-4">
-              {materias.map((materia) => (
-                <div
-                  key={materia.nombre}
-                  className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-xl font-medium">{materia.nombre}</h3>
-                      <p className="mt-2 text-sm text-slate-300">
-                        {materia.detalle}
-                      </p>
-                    </div>
-                    <span className="text-sm text-sky-300">
-                      {materia.progreso}%
-                    </span>
-                  </div>
+              {materiasData.map((materia) => {
+                const items = progresoData.filter((item) => item.materia_id === materia.id);
+                const avance =
+                  items.length > 0
+                    ? Math.round(items.reduce((acc, item) => acc + item.progreso, 0) / items.length)
+                    : 0;
 
-                  <div className="mt-4 h-3 w-full rounded-full bg-slate-800">
-                    <div
-                      className="h-3 rounded-full bg-sky-500"
-                      style={{ width: `${materia.progreso}%` }}
-                    />
+                return (
+                  <div
+                    key={materia.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-medium">{materia.nombre}</h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {materia.descripcion ?? "Sin descripción"}
+                        </p>
+                      </div>
+                      <p className="text-lg font-semibold text-sky-300">{avance}%</p>
+                    </div>
+
+                    <div className="mt-4 h-3 rounded-full bg-slate-800">
+                      <div
+                        className="h-3 rounded-full bg-sky-400"
+                        style={{ width: `${avance}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-2xl font-semibold">Actividad reciente</h2>
-
+            <h2 className="text-2xl font-semibold">Resultados recientes</h2>
             <div className="mt-5 space-y-4">
-              {actividadReciente.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-slate-300"
-                >
-                  {item}
-                </div>
-              ))}
+              {resultadosData.length > 0 ? (
+                resultadosData.map((resultado) => (
+                  <div
+                    key={resultado.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="text-lg font-medium capitalize">{resultado.tipo}</p>
+                      <p className="text-lg font-semibold text-sky-300">
+                        {resultado.puntaje ?? "—"}
+                      </p>
+                    </div>
+
+                    <p className="mt-2 text-sm text-slate-400">
+                      Aciertos: {resultado.aciertos ?? "—"} /{" "}
+                      {resultado.total_preguntas ?? "—"}
+                    </p>
+
+                    <p className="mt-2 text-slate-300">
+                      {resultado.detalle ?? "Sin detalle"}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-slate-400">No hay resultados aún.</p>
+              )}
             </div>
           </div>
         </div>
