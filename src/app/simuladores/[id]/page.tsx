@@ -1,712 +1,636 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabaseClient";
 
-type Pregunta = {
-  id: string;
-  texto_pregunta?: string | null;
-  pregunta?: string | null;
-  texto?: string | null;
-  imagen_pregunta?: string | null;
-
-  opcion_a?: string | null;
-  opcion_b?: string | null;
-  opcion_c?: string | null;
-  opcion_d?: string | null;
-
-  imagen_opcion_a?: string | null;
-  imagen_opcion_b?: string | null;
-  imagen_opcion_c?: string | null;
-  imagen_opcion_d?: string | null;
-
-  respuesta_correcta?: string | null;
-  respuesta?: string | null;
-
-  explicacion?: string | null;
-  justificacion?: string | null;
-  dificultad?: string | null;
+type Registro = {
+  id: string | number;
+  nombre?: string;
+  titulo?: string;
+  title?: string;
+  descripcion?: string;
+  description?: string;
+  tiempo_minutos?: number;
+  pregunta?: string;
+  opcion_a?: string;
+  opcion_b?: string;
+  opcion_c?: string;
+  opcion_d?: string;
+  respuesta_correcta?: string;
+  explicacion?: string;
+  orden?: number;
+  simulador_id?: string | number;
+  [key: string]: any;
 };
 
-type Simulador = {
-  id: string;
-  nombre?: string | null;
-  titulo?: string | null;
-  descripcion?: string | null;
-  tiempo_minutos?: number | null;
-};
+const TABLA_SIMULADORES = "simuladores";
+const TABLA_PREGUNTAS = "preguntas_simuladores";
+const TABLA_RESULTADOS = "resultados_simuladores";
 
-type DetalleRespuesta = {
-  pregunta_id: string;
-  pregunta: string;
-  respuesta_usuario: string;
-  respuesta_correcta: string;
-  correcta: boolean;
-  dificultad?: string | null;
-  explicacion?: string | null;
-};
-
-function tituloDe(item?: Simulador | null) {
-  return item?.nombre || item?.titulo || "Simulador";
-}
-
-function textoDePregunta(pregunta?: Pregunta | null) {
-  if (!pregunta) return "";
-  return pregunta.texto_pregunta || pregunta.pregunta || pregunta.texto || "";
-}
-
-function respuestaCorrectaDe(pregunta?: Pregunta | null) {
-  if (!pregunta) return "";
-  return (pregunta.respuesta_correcta || pregunta.respuesta || "").toUpperCase();
-}
-
-function explicacionDe(pregunta?: Pregunta | null) {
-  if (!pregunta) return "";
-  return pregunta.explicacion || pregunta.justificacion || "";
-}
-
-function formatearTiempo(segundos: number) {
-  const seguro = Math.max(0, segundos);
-  const min = Math.floor(seguro / 60);
-  const seg = seguro % 60;
-
-  return `${String(min).padStart(2, "0")}:${String(seg).padStart(2, "0")}`;
-}
-
-export default function SimuladorPage() {
+export default function SimuladorAlumnoPage() {
   const params = useParams();
-  const simuladorId = String(params.id);
+  const rawId = params?.id;
+  const simuladorId = Array.isArray(rawId) ? rawId[0] : String(rawId ?? "");
 
-  const [simulador, setSimulador] = useState<Simulador | null>(null);
-  const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const [actual, setActual] = useState(0);
+  const [simulador, setSimulador] = useState<Registro | null>(null);
+  const [preguntas, setPreguntas] = useState<Registro[]>([]);
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});
-
-  const [terminado, setTerminado] = useState(false);
-  const [terminadoPorTiempo, setTerminadoPorTiempo] = useState(false);
-  const [guardando, setGuardando] = useState(false);
-  const [errorGuardar, setErrorGuardar] = useState("");
-
-  const [tiempoAsignadoMinutos, setTiempoAsignadoMinutos] = useState(60);
-  const [segundosRestantes, setSegundosRestantes] = useState(60 * 60);
-
-  const resultadoGuardadoRef = useRef(false);
+  const [mostrarResultado, setMostrarResultado] = useState(false);
+  const [resultadoGuardado, setResultadoGuardado] = useState(false);
+  const [guardandoResultado, setGuardandoResultado] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [segundosRestantes, setSegundosRestantes] = useState<number | null>(null);
+  const [inicioTimestamp, setInicioTimestamp] = useState<number | null>(null);
 
   useEffect(() => {
-    cargarDatos();
+    if (!simuladorId) return;
+    cargarSimulador();
   }, [simuladorId]);
 
   useEffect(() => {
-    if (loading || terminado || preguntas.length === 0) return;
+    if (!simulador || mostrarResultado) return;
 
-    const intervalo = setInterval(() => {
+    const limite = Number(simulador.tiempo_minutos ?? 0);
+    if (limite <= 0 || segundosRestantes === null) return;
+
+    const intervalo = window.setInterval(() => {
       setSegundosRestantes((prev) => {
-        if (prev <= 1) return 0;
+        if (prev === null) return null;
+
+        if (prev <= 1) {
+          window.clearInterval(intervalo);
+          setTimeout(() => {
+            terminarSimulador(true);
+          }, 0);
+          return 0;
+        }
+
         return prev - 1;
       });
     }, 1000);
 
-    return () => clearInterval(intervalo);
-  }, [loading, terminado, preguntas.length]);
+    return () => window.clearInterval(intervalo);
+  }, [simulador, mostrarResultado, segundosRestantes, respuestas, preguntas]);
 
-  useEffect(() => {
-    if (
-      !loading &&
-      !terminado &&
-      preguntas.length > 0 &&
-      segundosRestantes === 0
-    ) {
-      terminarExamen(true);
+  function obtenerTitulo(item: Registro | null | undefined) {
+    if (!item) return "";
+    return String(item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`);
+  }
+
+  function obtenerDescripcion(item: Registro | null | undefined) {
+    if (!item) return "";
+    return String(item.descripcion ?? item.description ?? "");
+  }
+
+  function ordenarLista(lista: Registro[]) {
+    return [...lista].sort((a, b) => {
+      const ordenA = Number(a.orden ?? 0);
+      const ordenB = Number(b.orden ?? 0);
+      if (ordenA !== ordenB) return ordenA - ordenB;
+      return String(a.id).localeCompare(String(b.id));
+    });
+  }
+
+  function prepararHtml(html?: string) {
+    if (!html) return "";
+
+    let limpio = String(html);
+
+    for (let i = 0; i < 10; i++) {
+      const anterior = limpio;
+
+      if (typeof document !== "undefined") {
+        const textarea = document.createElement("textarea");
+        textarea.innerHTML = limpio;
+        limpio = textarea.value;
+      }
+
+      limpio = limpio
+        .replace(/&amp;lt;/g, "<")
+        .replace(/&amp;gt;/g, ">")
+        .replace(/&amp;quot;/g, '"')
+        .replace(/&amp;#34;/g, '"')
+        .replace(/&amp;#39;/g, "'")
+        .replace(/&amp;nbsp;/g, " ")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#34;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&");
+
+      if (limpio === anterior) break;
     }
-  }, [segundosRestantes, loading, terminado, preguntas.length]);
 
-  async function cargarDatos() {
-    setLoading(true);
-    setErrorGuardar("");
-    resultadoGuardadoRef.current = false;
+    return limpio;
+  }
 
-    const { data: simuladorData } = await supabase
-      .from("simuladores")
+  function contenidoVacio(html?: string) {
+    const contenido = prepararHtml(html);
+    const tieneImagen = /<img\b/i.test(contenido);
+
+    const texto = contenido
+      .replace(/<img\b[^>]*>/gi, "")
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return !tieneImagen && texto.length === 0;
+  }
+
+  function extraerAtributo(etiqueta: string, atributo: string) {
+    const regex = new RegExp(`${atributo}\\s*=\\s*["']([^"']+)["']`, "i");
+    const resultado = etiqueta.match(regex);
+    return resultado?.[1] ?? "";
+  }
+
+  function ContenidoPregunta({ html }: { html?: string }) {
+    const contenido = prepararHtml(html);
+
+    if (contenidoVacio(contenido)) return null;
+
+    const partes: Array<
+      | { tipo: "texto"; contenido: string }
+      | { tipo: "imagen"; src: string; alt: string }
+    > = [];
+
+    const regexImagen = /<img\b[^>]*>/gi;
+    let ultimoIndice = 0;
+    let coincidencia: RegExpExecArray | null;
+
+    while ((coincidencia = regexImagen.exec(contenido)) !== null) {
+      const textoAntes = contenido.slice(ultimoIndice, coincidencia.index);
+
+      if (textoAntes.trim()) {
+        partes.push({ tipo: "texto", contenido: textoAntes });
+      }
+
+      const etiquetaImagen = coincidencia[0];
+      const src = extraerAtributo(etiquetaImagen, "src");
+      const alt = extraerAtributo(etiquetaImagen, "alt") || "Imagen";
+
+      if (src) {
+        partes.push({ tipo: "imagen", src, alt });
+      }
+
+      ultimoIndice = coincidencia.index + etiquetaImagen.length;
+    }
+
+    const textoDespues = contenido.slice(ultimoIndice);
+
+    if (textoDespues.trim()) {
+      partes.push({ tipo: "texto", contenido: textoDespues });
+    }
+
+    return (
+      <div className="prose-exam text-slate-100">
+        {partes.map((parte, index) => {
+          if (parte.tipo === "imagen") {
+            return (
+              <img
+                key={`imagen-${index}`}
+                src={parte.src}
+                alt={parte.alt}
+                className="exam-image"
+              />
+            );
+          }
+
+          return (
+            <span
+              key={`texto-${index}`}
+              dangerouslySetInnerHTML={{
+                __html: prepararHtml(parte.contenido),
+              }}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  async function cargarSimulador() {
+    setCargando(true);
+
+    const { data: simuladorData, error: simuladorError } = await supabase
+      .from(TABLA_SIMULADORES)
       .select("*")
       .eq("id", simuladorId)
       .single();
 
-    const { data: preguntasData } = await supabase
-      .from("preguntas")
+    if (simuladorError) {
+      console.error("Error cargando simulador:", simuladorError);
+      setSimulador(null);
+      setPreguntas([]);
+      setCargando(false);
+      return;
+    }
+
+    setSimulador(simuladorData);
+
+    const limite = Number(simuladorData.tiempo_minutos ?? 0);
+    setSegundosRestantes(limite > 0 ? limite * 60 : null);
+    setInicioTimestamp(Date.now());
+
+    const { data: preguntasData, error: preguntasError } = await supabase
+      .from(TABLA_PREGUNTAS)
       .select("*")
-      .eq("simulador_id", simuladorId)
-      .order("orden", { ascending: true });
+      .eq("simulador_id", simuladorId);
 
-    const simuladorInfo = (simuladorData || null) as Simulador | null;
-    const minutos = Number(simuladorInfo?.tiempo_minutos || 60);
+    if (preguntasError) {
+      console.error("Error cargando preguntas:", preguntasError);
+      setPreguntas([]);
+    } else {
+      setPreguntas(ordenarLista(preguntasData ?? []));
+    }
 
-    setSimulador(simuladorInfo);
-    setPreguntas((preguntasData || []) as Pregunta[]);
-    setTiempoAsignadoMinutos(minutos);
-    setSegundosRestantes(minutos * 60);
-    setActual(0);
-    setRespuestas({});
-    setTerminado(false);
-    setTerminadoPorTiempo(false);
-    setLoading(false);
+    setCargando(false);
   }
 
-  const preguntaActual = preguntas[actual];
+  function calcularCorrectas(respuestasActuales: Record<string, string>) {
+    return preguntas.filter((pregunta) => {
+      const idPregunta = String(pregunta.id);
+      const respuestaAlumno = respuestasActuales[idPregunta];
+      const respuestaCorrecta = String(pregunta.respuesta_correcta ?? "").toUpperCase();
 
-  const estadisticas = useMemo(() => {
-    let aciertos = 0;
-    let errores = 0;
-    let sinResponder = 0;
+      return respuestaAlumno === respuestaCorrecta;
+    }).length;
+  }
 
-    preguntas.forEach((pregunta) => {
-      const respuestaUsuario = respuestas[pregunta.id] || "";
-      const correcta = respuestaCorrectaDe(pregunta);
-
-      if (!respuestaUsuario) {
-        sinResponder += 1;
-      } else if (respuestaUsuario.toUpperCase() === correcta) {
-        aciertos += 1;
-      } else {
-        errores += 1;
-      }
-    });
-
-    const total = preguntas.length;
-    const porcentaje = total > 0 ? Math.round((aciertos / total) * 100) : 0;
-
-    return {
-      total,
-      aciertos,
-      errores,
-      sinResponder,
-      porcentaje,
-    };
+  const totalCorrectas = useMemo(() => {
+    return calcularCorrectas(respuestas);
   }, [preguntas, respuestas]);
 
-  const tiempoUsadoSegundos = Math.max(
-    0,
-    tiempoAsignadoMinutos * 60 - segundosRestantes
-  );
+  const calificacion =
+    preguntas.length > 0 ? Math.round((totalCorrectas / preguntas.length) * 100) : 0;
 
-  function seleccionarRespuesta(letra: string) {
-    if (!preguntaActual || terminado) return;
+  function seleccionarRespuesta(idPregunta: string, opcion: string) {
+    if (mostrarResultado) return;
 
     setRespuestas((prev) => ({
       ...prev,
-      [preguntaActual.id]: letra,
+      [idPregunta]: opcion,
     }));
   }
 
-  function siguiente() {
-    if (actual < preguntas.length - 1) {
-      setActual((prev) => prev + 1);
-    } else {
-      terminarExamen(false);
-    }
+  function formatearTiempo(segundos: number | null) {
+    if (segundos === null) return "Sin límite";
+
+    const minutos = Math.floor(segundos / 60);
+    const seg = segundos % 60;
+
+    return `${String(minutos).padStart(2, "0")}:${String(seg).padStart(2, "0")}`;
   }
 
-  function anterior() {
-    if (actual > 0) {
-      setActual((prev) => prev - 1);
-    }
+  function obtenerTiempoUsado() {
+    if (!inicioTimestamp) return 0;
+    return Math.max(0, Math.floor((Date.now() - inicioTimestamp) / 1000));
   }
 
-  async function terminarExamen(porTiempo: boolean) {
-    if (resultadoGuardadoRef.current) return;
+  async function guardarResultado(respuestasActuales: Record<string, string>) {
+    if (!simulador) return;
 
-    resultadoGuardadoRef.current = true;
-    setGuardando(true);
-    setErrorGuardar("");
-    setTerminadoPorTiempo(porTiempo);
+    const correctas = calcularCorrectas(respuestasActuales);
+    const total = preguntas.length;
+    const calif = total > 0 ? Math.round((correctas / total) * 100) : 0;
+    const tiempoUsado = obtenerTiempoUsado();
 
-    const tiempoAsignadoSegundos = tiempoAsignadoMinutos * 60;
-
-    const tiempoUsado = porTiempo
-      ? tiempoAsignadoSegundos
-      : Math.min(tiempoAsignadoSegundos, tiempoUsadoSegundos);
-
-    const detalles: DetalleRespuesta[] = preguntas.map((pregunta) => {
-      const respuestaUsuario = respuestas[pregunta.id] || "";
-      const correcta = respuestaCorrectaDe(pregunta);
+    const detalleRespuestas = preguntas.map((item, index) => {
+      const idPregunta = String(item.id);
+      const respuestaAlumno = respuestasActuales[idPregunta] ?? "";
+      const respuestaCorrecta = String(item.respuesta_correcta ?? "").toUpperCase();
 
       return {
-        pregunta_id: pregunta.id,
-        pregunta: textoDePregunta(pregunta) || "Pregunta con imagen",
-        respuesta_usuario: respuestaUsuario || "Sin responder",
-        respuesta_correcta: correcta || "Sin definir",
-        correcta:
-          Boolean(respuestaUsuario) &&
-          respuestaUsuario.toUpperCase() === correcta,
-        dificultad: pregunta.dificultad || null,
-        explicacion: explicacionDe(pregunta) || null,
+        numero: index + 1,
+        pregunta_id: item.id,
+        pregunta: prepararHtml(item.pregunta ?? ""),
+        opciones: [
+          { clave: "A", contenido: prepararHtml(item.opcion_a ?? "") },
+          { clave: "B", contenido: prepararHtml(item.opcion_b ?? "") },
+          { clave: "C", contenido: prepararHtml(item.opcion_c ?? "") },
+          { clave: "D", contenido: prepararHtml(item.opcion_d ?? "") },
+        ],
+        respuesta_alumno: respuestaAlumno,
+        respuesta_correcta: respuestaCorrecta,
+        correcta: respuestaAlumno === respuestaCorrecta,
+        explicacion: item.explicacion ?? "",
       };
     });
 
-    const payload = {
-      alumno_id: "alumno_demo",
-      alumno_email: "alumno_demo@examen-uabc.local",
-      alumno_nombre: "Alumno demo",
+    setGuardandoResultado(true);
 
-      tipo: "simulador",
-      tipo_evaluacion: "simulador",
-
-      parcial_id: null,
+    const { error } = await supabase.from(TABLA_RESULTADOS).insert({
       simulador_id: simuladorId,
-      titulo: tituloDe(simulador),
-
-      total_preguntas: estadisticas.total,
-      aciertos: estadisticas.aciertos,
-      errores: estadisticas.errores,
-      porcentaje: estadisticas.porcentaje,
-      calificacion: estadisticas.porcentaje,
-
-      tiempo_asignado_minutos: tiempoAsignadoMinutos,
+      alumno_id: "sin-login",
+      alumno_nombre: "Alumno sin login",
+      total_preguntas: total,
+      correctas,
+      calificacion: calif,
+      tiempo_limite_minutos: Number(simulador.tiempo_minutos ?? 0),
       tiempo_usado_segundos: tiempoUsado,
-      terminado_por_tiempo: porTiempo,
-
-      respuestas: detalles,
-      estadisticas: {
-        total_preguntas: estadisticas.total,
-        aciertos: estadisticas.aciertos,
-        errores: estadisticas.errores,
-        sin_responder: estadisticas.sinResponder,
-        porcentaje: estadisticas.porcentaje,
-      },
-    };
-
-    const { error } = await supabase.from("resultados").insert(payload);
+      respuestas: detalleRespuestas,
+    });
 
     if (error) {
-      const mensajeError =
-        "El resultado se calculó, pero no se pudo guardar. " +
-        "Código: " +
-        (error.code || "sin código") +
-        " | Mensaje: " +
-        (error.message || "sin mensaje") +
-        " | Detalle: " +
-        (error.details || "sin detalle");
-
-      setErrorGuardar(mensajeError);
+      console.error("Error guardando resultado:", error);
+      setResultadoGuardado(false);
+    } else {
+      setResultadoGuardado(true);
     }
 
-    setGuardando(false);
-    setTerminado(true);
+    setGuardandoResultado(false);
   }
 
-  if (loading) {
+  async function terminarSimulador(automatico = false) {
+    if (preguntas.length === 0 || mostrarResultado || guardandoResultado) return;
+
+    const sinResponder = preguntas.some((pregunta) => !respuestas[String(pregunta.id)]);
+
+    if (sinResponder && !automatico) {
+      const confirmar = confirm(
+        "Hay preguntas sin responder. ¿Quieres terminar el simulador de todos modos?"
+      );
+
+      if (!confirmar) return;
+    }
+
+    setMostrarResultado(true);
+    await guardarResultado(respuestas);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function reiniciarSimulador() {
+    setRespuestas({});
+    setMostrarResultado(false);
+    setResultadoGuardado(false);
+    setGuardandoResultado(false);
+
+    const limite = Number(simulador?.tiempo_minutos ?? 0);
+    setSegundosRestantes(limite > 0 ? limite * 60 : null);
+    setInicioTimestamp(Date.now());
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  if (cargando) {
     return (
-      <main className="min-h-screen bg-slate-950 p-8 text-white">
-        Cargando simulador...
+      <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+        <section className="mx-auto max-w-5xl rounded-3xl border border-slate-800 bg-slate-900 p-8">
+          <p className="text-slate-300">Cargando simulador...</p>
+        </section>
       </main>
     );
   }
 
-  if (!preguntas.length) {
+  if (!simulador) {
     return (
-      <main className="min-h-screen bg-slate-950 p-8 text-white">
-        <div className="mx-auto max-w-4xl rounded-3xl border border-slate-800 bg-slate-900 p-8">
-          <h1 className="text-3xl font-bold">{tituloDe(simulador)}</h1>
+      <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+        <section className="mx-auto max-w-5xl rounded-3xl border border-slate-800 bg-slate-900 p-8">
+          <h1 className="text-3xl font-bold">Simulador no encontrado</h1>
 
-          <p className="mt-4 text-slate-300">
-            Este simulador todavía no tiene preguntas.
+          <p className="mt-3 text-slate-400">
+            No se encontró el simulador solicitado.
           </p>
 
           <Link
             href="/simuladores"
-            className="mt-6 inline-block rounded-xl bg-sky-500 px-5 py-3 font-semibold text-slate-950"
+            className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
           >
             Volver a simuladores
           </Link>
-        </div>
+        </section>
       </main>
     );
   }
-
-  if (terminado) {
-    const aprobado = estadisticas.porcentaje >= 60;
-
-    return (
-      <main className="min-h-screen bg-slate-950 p-8 text-white">
-        <div className="mx-auto max-w-6xl rounded-3xl border border-slate-800 bg-slate-900 p-8">
-          <p className="text-sm font-bold uppercase tracking-[0.3em] text-sky-400">
-            Resultado del simulador
-          </p>
-
-          <h1 className="mt-2 text-4xl font-bold">{tituloDe(simulador)}</h1>
-
-          <p className="mt-3 text-slate-400">
-            Este es el resumen de tu simulador. Puedes revisar tu calificación,
-            tiempo usado, respuestas correctas, errores y retroalimentación.
-          </p>
-
-          {terminadoPorTiempo && (
-            <div className="mt-5 rounded-2xl border border-red-500 bg-red-950/50 p-4 text-red-200">
-              El simulador terminó porque se agotó el tiempo asignado.
-            </div>
-          )}
-
-          {errorGuardar && (
-            <div className="mt-5 rounded-2xl border border-yellow-500 bg-yellow-950/50 p-4 text-yellow-200">
-              {errorGuardar}
-            </div>
-          )}
-
-          <section className="mt-8 grid gap-4 md:grid-cols-6">
-            <ResultadoCard
-              titulo="Calificación"
-              valor={String(estadisticas.porcentaje)}
-              color="text-sky-400"
-            />
-
-            <ResultadoCard
-              titulo="Aciertos"
-              valor={String(estadisticas.aciertos)}
-              color="text-emerald-400"
-            />
-
-            <ResultadoCard
-              titulo="Errores"
-              valor={String(estadisticas.errores)}
-              color="text-red-400"
-            />
-
-            <ResultadoCard
-              titulo="Sin responder"
-              valor={String(estadisticas.sinResponder)}
-              color="text-yellow-400"
-            />
-
-            <ResultadoCard
-              titulo="Total"
-              valor={String(estadisticas.total)}
-              color="text-white"
-            />
-
-            <ResultadoCard
-              titulo="Tiempo usado"
-              valor={formatearTiempo(tiempoUsadoSegundos)}
-              color="text-pink-400"
-            />
-          </section>
-
-          <section className="mt-8 rounded-3xl border border-slate-800 bg-slate-950 p-6">
-            <h2 className="text-2xl font-bold">Resumen general</h2>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <p className="text-sm text-slate-400">Estado</p>
-
-                <p
-                  className={`mt-2 text-2xl font-bold ${
-                    aprobado ? "text-emerald-400" : "text-red-400"
-                  }`}
-                >
-                  {aprobado ? "Aprobado" : "Requiere repaso"}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <p className="text-sm text-slate-400">Tiempo asignado</p>
-
-                <p className="mt-2 text-2xl font-bold text-sky-400">
-                  {tiempoAsignadoMinutos} minutos
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <p className="text-sm text-slate-400">Retroalimentación</p>
-
-              <p className="mt-2 text-slate-200">
-                {estadisticas.porcentaje >= 90
-                  ? "Excelente resultado. Tienes un dominio muy fuerte en este simulador."
-                  : estadisticas.porcentaje >= 70
-                    ? "Buen resultado. Conviene revisar las preguntas incorrectas para mejorar."
-                    : estadisticas.porcentaje >= 60
-                      ? "Resultado aprobatorio, pero se recomienda repasar antes de intentar otro simulador."
-                      : "Se recomienda estudiar nuevamente los temas relacionados y volver a intentar el simulador."}
-              </p>
-            </div>
-          </section>
-
-          <section className="mt-8 rounded-3xl border border-slate-800 bg-slate-950 p-6">
-            <h2 className="text-2xl font-bold">Resumen de respuestas</h2>
-
-            <div className="mt-5 grid gap-4">
-              {preguntas.map((pregunta, index) => {
-                const usuario = respuestas[pregunta.id] || "";
-                const correcta = respuestaCorrectaDe(pregunta);
-                const bien =
-                  Boolean(usuario) && usuario.toUpperCase() === correcta;
-
-                return (
-                  <div
-                    key={pregunta.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-5"
-                  >
-                    <div className="flex flex-col justify-between gap-3 md:flex-row">
-                      <div>
-                        <p className="text-sm font-bold text-sky-400">
-                          Pregunta {index + 1}
-                        </p>
-
-                        <h3 className="mt-1 font-semibold">
-                          {textoDePregunta(pregunta) || "Pregunta con imagen"}
-                        </h3>
-                      </div>
-
-                      <div
-                        className={`rounded-xl px-4 py-2 text-sm font-bold ${
-                          bien
-                            ? "bg-emerald-950 text-emerald-300"
-                            : "bg-red-950 text-red-300"
-                        }`}
-                      >
-                        {bien ? "Correcta" : "Incorrecta"}
-                      </div>
-                    </div>
-
-                    {pregunta.imagen_pregunta && (
-                      <img
-                        src={pregunta.imagen_pregunta}
-                        alt="Imagen de pregunta"
-                        className="mt-4 max-h-[320px] w-full rounded-xl bg-white object-contain"
-                      />
-                    )}
-
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <div className="rounded-xl bg-slate-950 p-4">
-                        <p className="text-sm text-slate-400">Tu respuesta</p>
-
-                        <p className="mt-1 font-bold text-white">
-                          {usuario || "Sin responder"}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-slate-950 p-4">
-                        <p className="text-sm text-slate-400">
-                          Respuesta correcta
-                        </p>
-
-                        <p className="mt-1 font-bold text-emerald-400">
-                          {correcta || "Sin definir"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {explicacionDe(pregunta) && (
-                      <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950 p-4">
-                        <p className="text-sm text-slate-400">Explicación</p>
-
-                        <p className="mt-1 text-slate-200">
-                          {explicacionDe(pregunta)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link
-              href="/panel-alumno"
-              className="rounded-xl bg-sky-500 px-5 py-3 font-semibold text-slate-950"
-            >
-              Volver al panel
-            </Link>
-
-            <Link
-              href="/resultados"
-              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold"
-            >
-              Ver mis calificaciones
-            </Link>
-
-            <Link
-              href="/simuladores"
-              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold"
-            >
-              Volver a simuladores
-            </Link>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  const tiempoCritico = segundosRestantes <= 60;
 
   return (
-    <main className="min-h-screen bg-slate-950 p-6 text-white">
-      <section className="mx-auto max-w-4xl">
-        <div className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-6">
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+    <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
+      <div className="fixed bottom-4 right-4 z-50 rounded-2xl border border-cyan-500/50 bg-slate-950/95 px-5 py-4 text-center shadow-2xl backdrop-blur md:bottom-auto md:top-24">
+        <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">
+          Tiempo restante
+        </p>
+        <p className="mt-1 text-2xl font-black text-white">
+          {formatearTiempo(segundosRestantes)}
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.3em] text-sky-400">
+              <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">
                 Simulador
               </p>
 
-              <h1 className="mt-2 text-3xl font-bold">{tituloDe(simulador)}</h1>
+              <h1 className="mt-3 text-4xl font-bold">
+                {obtenerTitulo(simulador)}
+              </h1>
 
-              <p className="mt-3 text-slate-400">
-                Pregunta {actual + 1} de {preguntas.length}
-              </p>
+              {obtenerDescripcion(simulador) && (
+                <p className="mt-4 max-w-3xl text-slate-300">
+                  {obtenerDescripcion(simulador)}
+                </p>
+              )}
             </div>
 
-            <div
-              className={`rounded-2xl border px-6 py-4 text-center ${
-                tiempoCritico
-                  ? "border-red-500 bg-red-950 text-red-200"
-                  : "border-sky-500 bg-sky-950 text-sky-200"
-              }`}
-            >
-              <p className="text-xs font-bold uppercase tracking-wide">
-                Tiempo restante
-              </p>
-
-              <p className="mt-1 text-4xl font-bold">
+            <div className="rounded-2xl border border-cyan-700/40 bg-cyan-950/30 p-4 text-center">
+              <p className="text-sm text-cyan-300">Tiempo restante</p>
+              <p className="mt-1 text-3xl font-bold">
                 {formatearTiempo(segundosRestantes)}
               </p>
-
-              <p className="mt-1 text-xs">
-                Tiempo asignado: {tiempoAsignadoMinutos} min
-              </p>
             </div>
           </div>
-        </div>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-          {preguntaActual.imagen_pregunta && (
-            <img
-              src={preguntaActual.imagen_pregunta}
-              alt="Imagen de pregunta"
-              className="mb-5 max-h-[420px] w-full rounded-2xl bg-white object-contain"
-            />
+          {mostrarResultado && (
+            <div className="mt-6 rounded-2xl border border-cyan-600/40 bg-cyan-950/30 p-5">
+              <p className="text-sm font-semibold uppercase tracking-wider text-cyan-300">
+                Resultado
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold">
+                {totalCorrectas} de {preguntas.length} correctas — {calificacion}%
+              </h2>
+
+              <p className="mt-2 text-slate-300">
+                Tiempo usado: {formatearTiempo(obtenerTiempoUsado())}
+              </p>
+
+              <p className="mt-2 text-sm text-slate-400">
+                {guardandoResultado
+                  ? "Guardando resultado..."
+                  : resultadoGuardado
+                  ? "Resultado guardado correctamente."
+                  : "El resultado no se pudo guardar. Revisa la consola."}
+              </p>
+            </div>
           )}
+        </header>
 
-          {textoDePregunta(preguntaActual) && (
-            <h2 className="mb-5 text-2xl font-bold">
-              {textoDePregunta(preguntaActual)}
+        {preguntas.length === 0 ? (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-8">
+            <h2 className="text-2xl font-bold">
+              Este simulador todavía no tiene preguntas
             </h2>
-          )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Opcion
-              letra="A"
-              texto={preguntaActual.opcion_a}
-              imagen={preguntaActual.imagen_opcion_a}
-              seleccionada={respuestas[preguntaActual.id] === "A"}
-              onClick={() => seleccionarRespuesta("A")}
-            />
+            <p className="mt-3 text-slate-400">
+              Agrega preguntas desde el panel de administración.
+            </p>
 
-            <Opcion
-              letra="B"
-              texto={preguntaActual.opcion_b}
-              imagen={preguntaActual.imagen_opcion_b}
-              seleccionada={respuestas[preguntaActual.id] === "B"}
-              onClick={() => seleccionarRespuesta("B")}
-            />
-
-            <Opcion
-              letra="C"
-              texto={preguntaActual.opcion_c}
-              imagen={preguntaActual.imagen_opcion_c}
-              seleccionada={respuestas[preguntaActual.id] === "C"}
-              onClick={() => seleccionarRespuesta("C")}
-            />
-
-            <Opcion
-              letra="D"
-              texto={preguntaActual.opcion_d}
-              imagen={preguntaActual.imagen_opcion_d}
-              seleccionada={respuestas[preguntaActual.id] === "D"}
-              onClick={() => seleccionarRespuesta("D")}
-            />
-          </div>
-
-          <div className="mt-8 flex justify-between gap-4">
-            <button
-              onClick={anterior}
-              disabled={actual === 0}
-              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold disabled:opacity-40"
+            <Link
+              href="/simuladores"
+              className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
             >
-              Anterior
-            </button>
+              Volver a simuladores
+            </Link>
+          </section>
+        ) : (
+          <>
+            <section className="space-y-6">
+              {preguntas.map((pregunta, index) => {
+                const idPregunta = String(pregunta.id);
+                const respuestaAlumno = respuestas[idPregunta];
+                const respuestaCorrecta = String(
+                  pregunta.respuesta_correcta ?? ""
+                ).toUpperCase();
 
-            <button
-              onClick={siguiente}
-              disabled={!respuestas[preguntaActual.id] || guardando}
-              className="rounded-xl bg-sky-500 px-5 py-3 font-semibold text-slate-950 disabled:opacity-40"
-            >
-              {guardando
-                ? "Guardando..."
-                : actual === preguntas.length - 1
-                  ? "Terminar"
-                  : "Siguiente"}
-            </button>
-          </div>
-        </div>
-      </section>
+                const opciones = [
+                  { clave: "A", html: pregunta.opcion_a },
+                  { clave: "B", html: pregunta.opcion_b },
+                  { clave: "C", html: pregunta.opcion_c },
+                  { clave: "D", html: pregunta.opcion_d },
+                ].filter((opcion) => !contenidoVacio(String(opcion.html ?? "")));
+
+                return (
+                  <article
+                    key={pregunta.id}
+                    className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6"
+                  >
+                    <p className="text-sm font-semibold text-blue-300">
+                      Pregunta {index + 1}
+                    </p>
+
+                    <div className="mt-3">
+                      <ContenidoPregunta html={pregunta.pregunta} />
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                      {opciones.map((opcion) => {
+                        const seleccionada = respuestaAlumno === opcion.clave;
+                        const esCorrecta = respuestaCorrecta === opcion.clave;
+
+                        let clase =
+                          "border-slate-700 bg-slate-950 hover:bg-slate-800";
+
+                        if (mostrarResultado && esCorrecta) {
+                          clase = "border-green-600 bg-green-950 text-green-200";
+                        } else if (mostrarResultado && seleccionada && !esCorrecta) {
+                          clase = "border-red-600 bg-red-950 text-red-200";
+                        } else if (seleccionada) {
+                          clase = "border-blue-600 bg-blue-950 text-blue-100";
+                        }
+
+                        return (
+                          <button
+                            key={opcion.clave}
+                            type="button"
+                            onClick={() => seleccionarRespuesta(idPregunta, opcion.clave)}
+                            className={`w-full rounded-2xl border px-4 py-3 text-left transition ${clase}`}
+                          >
+                            <p className="mb-2 font-bold">{opcion.clave})</p>
+                            <ContenidoPregunta html={opcion.html} />
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {mostrarResultado && pregunta.explicacion && (
+                      <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950 p-4">
+                        <p className="font-semibold text-yellow-300">
+                          Explicación
+                        </p>
+
+                        <p className="mt-2 text-slate-300">
+                          {pregunta.explicacion}
+                        </p>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </section>
+
+            <section className="mt-8 flex flex-col gap-3 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 sm:flex-row sm:items-center sm:justify-between">
+              <Link
+                href="/simuladores"
+                className="rounded-xl border border-slate-700 px-5 py-3 text-center font-semibold text-white hover:bg-slate-800"
+              >
+                Volver a simuladores
+              </Link>
+
+              {mostrarResultado ? (
+                <button
+                  type="button"
+                  onClick={reiniciarSimulador}
+                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
+                >
+                  Reintentar simulador
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => terminarSimulador(false)}
+                  className="rounded-xl bg-cyan-500 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-400"
+                >
+                  Terminar simulador
+                </button>
+              )}
+            </section>
+          </>
+        )}
+      </div>
+
+      <style jsx global>{`
+        .prose-exam {
+          line-height: 1.6;
+          word-break: break-word;
+        }
+
+        .prose-exam img,
+        .exam-image {
+          max-width: 100%;
+          height: auto;
+          border-radius: 12px;
+          margin: 12px 0;
+          border: 1px solid #334155;
+          display: block;
+        }
+
+        .prose-exam h2 {
+          font-size: 1.5rem;
+          font-weight: 800;
+          margin: 0.5rem 0;
+        }
+
+        .prose-exam ul {
+          list-style: disc;
+          padding-left: 1.5rem;
+        }
+
+        .prose-exam font[size="4"] {
+          font-size: 1.25rem;
+        }
+
+        .prose-exam font[size="5"] {
+          font-size: 1.5rem;
+        }
+
+        .prose-exam font[size="6"] {
+          font-size: 2rem;
+        }
+      `}</style>
     </main>
-  );
-}
-
-function Opcion({
-  letra,
-  texto,
-  imagen,
-  seleccionada,
-  onClick,
-}: {
-  letra: string;
-  texto?: string | null;
-  imagen?: string | null;
-  seleccionada: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-2xl border p-4 text-left transition ${
-        seleccionada
-          ? "border-sky-400 bg-sky-950"
-          : "border-slate-700 bg-slate-950 hover:border-sky-500"
-      }`}
-    >
-      <p className="mb-2 font-bold text-sky-400">Opción {letra}</p>
-
-      {imagen && (
-        <img
-          src={imagen}
-          alt={`Opción ${letra}`}
-          className="mb-3 max-h-[260px] w-full rounded-xl bg-white object-contain"
-        />
-      )}
-
-      {texto && <p>{texto}</p>}
-    </button>
-  );
-}
-
-function ResultadoCard({
-  titulo,
-  valor,
-  color,
-}: {
-  titulo: string;
-  valor: string;
-  color: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-slate-950 p-5">
-      <p className="text-sm text-slate-400">{titulo}</p>
-      <p className={`mt-2 text-3xl font-bold ${color}`}>{valor}</p>
-    </div>
   );
 }

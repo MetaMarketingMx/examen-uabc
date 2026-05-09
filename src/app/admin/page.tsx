@@ -1,990 +1,1793 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type Registro = {
-  id: string;
-  nombre?: string | null;
-  titulo?: string | null;
-  descripcion?: string | null;
-  materia_id?: string | null;
-  tema_id?: string | null;
-  parcial_id?: string | null;
-  simulador_id?: string | null;
-  texto_pregunta?: string | null;
-  pregunta?: string | null;
-  imagen_pregunta?: string | null;
-  opcion_a?: string | null;
-  opcion_b?: string | null;
-  opcion_c?: string | null;
-  opcion_d?: string | null;
-  imagen_opcion_a?: string | null;
-  imagen_opcion_b?: string | null;
-  imagen_opcion_c?: string | null;
-  imagen_opcion_d?: string | null;
-  respuesta_correcta?: string | null;
-  explicacion?: string | null;
-  dificultad?: string | null;
-  tiempo_minutos?: number | null;
+  id: string | number;
+  nombre?: string;
+  titulo?: string;
+  title?: string;
+  descripcion?: string;
+  description?: string;
+  orden?: number;
+  materia_id?: string | number;
+  id_materia?: string | number;
+  materia?: string | number;
+  tema_id?: string | number;
+  unidad_id?: string | number;
+  id_tema?: string | number;
+  id_unidad?: string | number;
+  tema?: string | number;
+  unidad?: string | number;
+  [key: string]: any;
 };
 
-type TipoDestino = "parcial" | "simulador";
+type Seccion =
+  | "materias"
+  | "temas"
+  | "subtemas"
+  | "parciales"
+  | "simuladores";
 
-const emptyFiles = {
-  imagen_pregunta: null as File | null,
-  imagen_opcion_a: null as File | null,
-  imagen_opcion_b: null as File | null,
-  imagen_opcion_c: null as File | null,
-  imagen_opcion_d: null as File | null,
-};
-
-const emptyPreview = {
-  imagen_pregunta: "",
-  imagen_opcion_a: "",
-  imagen_opcion_b: "",
-  imagen_opcion_c: "",
-  imagen_opcion_d: "",
-};
-
-function nombreDe(item?: Registro | null) {
-  return item?.nombre || item?.titulo || "Sin nombre";
-}
+const TABLA_MATERIAS = "materias";
+const TABLA_TEMAS = "temas";
+const TABLA_SUBTEMAS = "subtemas";
+const TABLA_PARCIALES = "parciales";
+const TABLA_SIMULADORES = "simuladores";
 
 export default function AdminPage() {
+  const [seccion, setSeccion] = useState<Seccion>("materias");
+
   const [materias, setMaterias] = useState<Registro[]>([]);
   const [temas, setTemas] = useState<Registro[]>([]);
+  const [temasParaSubtemas, setTemasParaSubtemas] = useState<Registro[]>([]);
+  const [subtemas, setSubtemas] = useState<Registro[]>([]);
+  const [temasParaParciales, setTemasParaParciales] = useState<Registro[]>([]);
   const [parciales, setParciales] = useState<Registro[]>([]);
   const [simuladores, setSimuladores] = useState<Registro[]>([]);
-  const [preguntas, setPreguntas] = useState<Registro[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [mensaje, setMensaje] = useState("");
-  const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
-  const [materiaNombre, setMateriaNombre] = useState("");
+  const [materiaEditandoId, setMateriaEditandoId] = useState<string | number | null>(null);
+  const [materiaTitulo, setMateriaTitulo] = useState("");
   const [materiaDescripcion, setMateriaDescripcion] = useState("");
+  const [materiaOrden, setMateriaOrden] = useState("1");
 
   const [temaMateriaId, setTemaMateriaId] = useState("");
+  const [temaEditandoId, setTemaEditandoId] = useState<string | number | null>(null);
   const [temaTitulo, setTemaTitulo] = useState("");
   const [temaDescripcion, setTemaDescripcion] = useState("");
+  const [temaOrden, setTemaOrden] = useState("1");
+
+  const [subtemaMateriaId, setSubtemaMateriaId] = useState("");
+  const [subtemaTemaId, setSubtemaTemaId] = useState("");
+  const [subtemaEditandoId, setSubtemaEditandoId] = useState<string | number | null>(null);
+  const [subtemaTitulo, setSubtemaTitulo] = useState("");
+  const [subtemaDescripcion, setSubtemaDescripcion] = useState("");
+  const [subtemaOrden, setSubtemaOrden] = useState("1");
 
   const [parcialMateriaId, setParcialMateriaId] = useState("");
   const [parcialTemaId, setParcialTemaId] = useState("");
+  const [parcialEditandoId, setParcialEditandoId] = useState<string | number | null>(null);
   const [parcialTitulo, setParcialTitulo] = useState("");
   const [parcialDescripcion, setParcialDescripcion] = useState("");
-  const [parcialTiempo, setParcialTiempo] = useState("30");
+  const [parcialOrden, setParcialOrden] = useState("1");
 
+  const [simuladorEditandoId, setSimuladorEditandoId] = useState<string | number | null>(null);
   const [simuladorTitulo, setSimuladorTitulo] = useState("");
   const [simuladorDescripcion, setSimuladorDescripcion] = useState("");
-  const [simuladorTiempo, setSimuladorTiempo] = useState("60");
-
-  const [tipoDestino, setTipoDestino] = useState<TipoDestino>("parcial");
-  const [preguntaMateriaId, setPreguntaMateriaId] = useState("");
-  const [preguntaTemaId, setPreguntaTemaId] = useState("");
-  const [preguntaParcialId, setPreguntaParcialId] = useState("");
-  const [preguntaSimuladorId, setPreguntaSimuladorId] = useState("");
-
-  const [textoPregunta, setTextoPregunta] = useState("");
-  const [opcionA, setOpcionA] = useState("");
-  const [opcionB, setOpcionB] = useState("");
-  const [opcionC, setOpcionC] = useState("");
-  const [opcionD, setOpcionD] = useState("");
-  const [respuestaCorrecta, setRespuestaCorrecta] = useState("A");
-  const [explicacion, setExplicacion] = useState("");
-  const [dificultad, setDificultad] = useState("Media");
-
-  const [files, setFiles] = useState(emptyFiles);
-  const [previews, setPreviews] = useState(emptyPreview);
-
-  const temasDelParcial = useMemo(() => {
-    return temas.filter(
-      (tema) => String(tema.materia_id) === String(parcialMateriaId)
-    );
-  }, [temas, parcialMateriaId]);
-
-  const temasDePregunta = useMemo(() => {
-    return temas.filter(
-      (tema) => String(tema.materia_id) === String(preguntaMateriaId)
-    );
-  }, [temas, preguntaMateriaId]);
-
-  const parcialesDePregunta = useMemo(() => {
-    return parciales.filter(
-      (parcial) => String(parcial.tema_id) === String(preguntaTemaId)
-    );
-  }, [parciales, preguntaTemaId]);
+  const [simuladorOrden, setSimuladorOrden] = useState("1");
 
   useEffect(() => {
-    cargarTodo();
+    cargarInicial();
   }, []);
 
-  async function cargarTodo() {
-    setLoading(true);
-    setError("");
-    setMensaje("");
-
-    const [materiasRes, temasRes, parcialesRes, simuladoresRes, preguntasRes] =
-      await Promise.all([
-        supabase.from("materias").select("*").order("orden", { ascending: true }),
-        supabase.from("temas").select("*").order("orden", { ascending: true }),
-        supabase.from("parciales").select("*").order("orden", { ascending: true }),
-        supabase.from("simuladores").select("*").order("orden", { ascending: true }),
-        supabase.from("preguntas").select("*").order("created_at", { ascending: false }),
-      ]);
-
-    if (materiasRes.error) console.error("materias:", materiasRes.error);
-    if (temasRes.error) console.error("temas:", temasRes.error);
-    if (parcialesRes.error) console.error("parciales:", parcialesRes.error);
-    if (simuladoresRes.error) console.error("simuladores:", simuladoresRes.error);
-    if (preguntasRes.error) console.error("preguntas:", preguntasRes.error);
-
-    setMaterias((materiasRes.data || []) as Registro[]);
-    setTemas((temasRes.data || []) as Registro[]);
-    setParciales((parcialesRes.data || []) as Registro[]);
-    setSimuladores((simuladoresRes.data || []) as Registro[]);
-    setPreguntas((preguntasRes.data || []) as Registro[]);
-
-    setLoading(false);
+  function obtenerTitulo(item: Registro | null | undefined) {
+    if (!item) return "";
+    return String(item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`);
   }
 
-  function limpiarMensajes() {
-    setMensaje("");
-    setError("");
+  function obtenerDescripcion(item: Registro | null | undefined) {
+    if (!item) return "";
+    return String(item.descripcion ?? item.description ?? "");
   }
 
-  async function crearMateria(e: FormEvent) {
-    e.preventDefault();
-    limpiarMensajes();
+  function ordenarLista(lista: Registro[]) {
+    return [...lista].sort((a, b) => {
+      const ordenA = Number(a.orden ?? 0);
+      const ordenB = Number(b.orden ?? 0);
 
-    if (!materiaNombre.trim()) {
-      setError("Escribe el nombre de la materia.");
-      return;
+      if (ordenA !== ordenB) return ordenA - ordenB;
+
+      return String(a.id).localeCompare(String(b.id));
+    });
+  }
+
+  function siguienteOrden(lista: Registro[]) {
+    if (lista.length === 0) return 1;
+    return Math.max(...lista.map((item) => Number(item.orden ?? 0))) + 1;
+  }
+
+  async function consultarConFallback(
+    tabla: string,
+    filtros: { columna: string; valor: string }[]
+  ) {
+    let primeraRespuestaValida: Registro[] = [];
+
+    for (const filtro of filtros) {
+      const { data, error } = await supabase
+        .from(tabla)
+        .select("*")
+        .eq(filtro.columna, filtro.valor);
+
+      if (!error) {
+        const lista = data ?? [];
+
+        if (primeraRespuestaValida.length === 0) {
+          primeraRespuestaValida = lista;
+        }
+
+        if (lista.length > 0) {
+          return lista;
+        }
+      }
     }
 
-    const { error } = await supabase.from("materias").insert({
-      nombre: materiaNombre.trim(),
-      titulo: materiaNombre.trim(),
-      descripcion: materiaDescripcion.trim(),
-      activo: true,
-      activa: true,
-    });
+    return primeraRespuestaValida;
+  }
+
+  async function cargarInicial() {
+    setCargando(true);
+    await cargarMaterias();
+    await cargarSimuladores();
+    setCargando(false);
+  }
+
+  async function cargarMaterias() {
+    const { data, error } = await supabase.from(TABLA_MATERIAS).select("*");
 
     if (error) {
-      console.error(error);
-      setError("Error al guardar materia.");
+      console.error("Error cargando materias:", error);
+      alert("No se pudieron cargar las materias.");
       return;
     }
 
-    setMateriaNombre("");
+    const lista = ordenarLista(data ?? []);
+    setMaterias(lista);
+
+    if (!materiaEditandoId) {
+      setMateriaOrden(String(siguienteOrden(lista)));
+    }
+  }
+
+  async function obtenerTemasDeMateria(idMateria: string) {
+    if (!idMateria) return [];
+
+    const data = await consultarConFallback(TABLA_TEMAS, [
+      { columna: "materia_id", valor: idMateria },
+      { columna: "id_materia", valor: idMateria },
+      { columna: "materia", valor: idMateria },
+    ]);
+
+    return ordenarLista(data);
+  }
+
+  async function obtenerSubtemasDeTema(idTema: string) {
+    if (!idTema) return [];
+
+    const data = await consultarConFallback(TABLA_SUBTEMAS, [
+      { columna: "tema_id", valor: idTema },
+      { columna: "unidad_id", valor: idTema },
+      { columna: "id_tema", valor: idTema },
+      { columna: "id_unidad", valor: idTema },
+      { columna: "tema", valor: idTema },
+      { columna: "unidad", valor: idTema },
+    ]);
+
+    return ordenarLista(data);
+  }
+
+  async function obtenerParcialesDeTema(idTema: string) {
+    if (!idTema) return [];
+
+    const data = await consultarConFallback(TABLA_PARCIALES, [
+      { columna: "tema_id", valor: idTema },
+      { columna: "unidad_id", valor: idTema },
+      { columna: "id_tema", valor: idTema },
+      { columna: "id_unidad", valor: idTema },
+      { columna: "tema", valor: idTema },
+      { columna: "unidad", valor: idTema },
+    ]);
+
+    return ordenarLista(data);
+  }
+
+  async function cargarSimuladores() {
+    const { data, error } = await supabase.from(TABLA_SIMULADORES).select("*");
+
+    if (error) {
+      console.error("Error cargando simuladores:", error);
+      alert("No se pudieron cargar los simuladores.");
+      return;
+    }
+
+    const lista = ordenarLista(data ?? []);
+    setSimuladores(lista);
+
+    if (!simuladorEditandoId) {
+      setSimuladorOrden(String(siguienteOrden(lista)));
+    }
+  }
+
+  async function guardarConFallback(
+    tabla: string,
+    payloads: Record<string, any>[],
+    editandoId: string | number | null
+  ) {
+    let ultimoError: any = null;
+
+    for (const payload of payloads) {
+      const respuesta = editandoId
+        ? await supabase.from(tabla).update(payload).eq("id", editandoId)
+        : await supabase.from(tabla).insert(payload);
+
+      if (!respuesta.error) {
+        return null;
+      }
+
+      ultimoError = respuesta.error;
+    }
+
+    return ultimoError;
+  }
+
+  function crearPayloadsTitulo(
+    titulo: string,
+    descripcion: string,
+    orden: number,
+    relaciones: Record<string, string | number>[]
+  ) {
+    const variantesTitulo = [
+      { titulo, descripcion },
+      { nombre: titulo, descripcion },
+      { title: titulo, description: descripcion },
+    ];
+
+    const payloads: Record<string, any>[] = [];
+
+    if (relaciones.length === 0) {
+      for (const variante of variantesTitulo) {
+        payloads.push({
+          ...variante,
+          orden,
+        });
+      }
+    } else {
+      for (const relacion of relaciones) {
+        for (const variante of variantesTitulo) {
+          payloads.push({
+            ...relacion,
+            ...variante,
+            orden,
+          });
+        }
+      }
+    }
+
+    return payloads;
+  }
+
+  function limpiarMateria() {
+    setMateriaEditandoId(null);
+    setMateriaTitulo("");
     setMateriaDescripcion("");
-    setMensaje("Materia agregada correctamente.");
-    cargarTodo();
+    setMateriaOrden("1");
   }
 
-  async function crearTema(e: FormEvent) {
-    e.preventDefault();
-    limpiarMensajes();
-
-    if (!temaMateriaId || !temaTitulo.trim()) {
-      setError("Selecciona materia y escribe el título del tema.");
-      return;
-    }
-
-    const { error } = await supabase.from("temas").insert({
-      materia_id: temaMateriaId,
-      nombre: temaTitulo.trim(),
-      titulo: temaTitulo.trim(),
-      descripcion: temaDescripcion.trim(),
-      activo: true,
-    });
-
-    if (error) {
-      console.error(error);
-      setError("Error al guardar tema.");
-      return;
-    }
-
-    setTemaMateriaId("");
+  function limpiarTema() {
+    setTemaEditandoId(null);
     setTemaTitulo("");
     setTemaDescripcion("");
-    setMensaje("Tema agregado correctamente.");
-    cargarTodo();
+    setTemaOrden("1");
   }
 
-  async function crearParcial(e: FormEvent) {
-    e.preventDefault();
-    limpiarMensajes();
+  function limpiarSubtema() {
+    setSubtemaEditandoId(null);
+    setSubtemaTitulo("");
+    setSubtemaDescripcion("");
+    setSubtemaOrden("1");
+  }
 
-    if (!parcialMateriaId || !parcialTemaId || !parcialTitulo.trim()) {
-      setError("Selecciona materia, tema y escribe el título del parcial.");
-      return;
-    }
-
-    const { error } = await supabase.from("parciales").insert({
-      materia_id: parcialMateriaId,
-      tema_id: parcialTemaId,
-      nombre: parcialTitulo.trim(),
-      titulo: parcialTitulo.trim(),
-      descripcion: parcialDescripcion.trim(),
-      tiempo_minutos: Number(parcialTiempo) || 30,
-      activo: true,
-    });
-
-    if (error) {
-      console.error(error);
-      setError("Error al guardar parcial.");
-      return;
-    }
-
-    setParcialMateriaId("");
-    setParcialTemaId("");
+  function limpiarParcial() {
+    setParcialEditandoId(null);
     setParcialTitulo("");
     setParcialDescripcion("");
-    setParcialTiempo("30");
-    setMensaje("Parcial agregado correctamente.");
-    cargarTodo();
+    setParcialOrden("1");
   }
 
-  async function crearSimulador(e: FormEvent) {
-    e.preventDefault();
-    limpiarMensajes();
-
-    if (!simuladorTitulo.trim()) {
-      setError("Escribe el título del simulador.");
-      return;
-    }
-
-    const { error } = await supabase.from("simuladores").insert({
-      nombre: simuladorTitulo.trim(),
-      titulo: simuladorTitulo.trim(),
-      descripcion: simuladorDescripcion.trim(),
-      tiempo_minutos: Number(simuladorTiempo) || 60,
-      activo: true,
-    });
-
-    if (error) {
-      console.error(error);
-      setError("Error al guardar simulador.");
-      return;
-    }
-
+  function limpiarSimulador() {
+    setSimuladorEditandoId(null);
     setSimuladorTitulo("");
     setSimuladorDescripcion("");
-    setSimuladorTiempo("60");
-    setMensaje("Simulador agregado correctamente.");
-    cargarTodo();
+    setSimuladorOrden("1");
   }
 
-  function validarArchivo(file: File) {
-    const permitidos = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+  async function seleccionarMateriaParaTemas(idMateria: string) {
+    setTemaMateriaId(idMateria);
+    setTemas([]);
+    limpiarTema();
 
-    if (!permitidos.includes(file.type)) {
-      throw new Error("Solo se permiten imágenes JPG, PNG o WEBP.");
-    }
+    if (!idMateria) return;
 
-    const max = 3 * 1024 * 1024;
-
-    if (file.size > max) {
-      throw new Error("La imagen no debe pesar más de 3 MB.");
-    }
+    setCargando(true);
+    const lista = await obtenerTemasDeMateria(idMateria);
+    setTemas(lista);
+    setTemaOrden(String(siguienteOrden(lista)));
+    setCargando(false);
   }
 
-  async function subirImagen(file: File | null, carpeta: string) {
-    if (!file) return "";
+  async function seleccionarMateriaParaSubtemas(idMateria: string) {
+    setSubtemaMateriaId(idMateria);
+    setSubtemaTemaId("");
+    setTemasParaSubtemas([]);
+    setSubtemas([]);
+    limpiarSubtema();
 
-    validarArchivo(file);
+    if (!idMateria) return;
 
-    const extension = file.name.split(".").pop() || "jpg";
-    const nombreArchivo = `${carpeta}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-
-    const { error } = await supabase.storage
-      .from("cuestionarios")
-      .upload(nombreArchivo, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (error) {
-      console.error(error);
-      throw new Error("Error al subir imagen.");
-    }
-
-    const { data } = supabase.storage
-      .from("cuestionarios")
-      .getPublicUrl(nombreArchivo);
-
-    return data.publicUrl;
+    setCargando(true);
+    const lista = await obtenerTemasDeMateria(idMateria);
+    setTemasParaSubtemas(lista);
+    setCargando(false);
   }
 
-  function seleccionarImagen(
-    campo:
-      | "imagen_pregunta"
-      | "imagen_opcion_a"
-      | "imagen_opcion_b"
-      | "imagen_opcion_c"
-      | "imagen_opcion_d",
-    e: ChangeEvent<HTMLInputElement>
-  ) {
-    const file = e.target.files?.[0] || null;
+  async function seleccionarTemaParaSubtemas(idTema: string) {
+    setSubtemaTemaId(idTema);
+    setSubtemas([]);
+    limpiarSubtema();
 
-    setFiles((prev) => ({
-      ...prev,
-      [campo]: file,
-    }));
+    if (!idTema) return;
 
-    if (file) {
-      setPreviews((prev) => ({
-        ...prev,
-        [campo]: URL.createObjectURL(file),
-      }));
-    } else {
-      setPreviews((prev) => ({
-        ...prev,
-        [campo]: "",
-      }));
-    }
+    setCargando(true);
+    const lista = await obtenerSubtemasDeTema(idTema);
+    setSubtemas(lista);
+    setSubtemaOrden(String(siguienteOrden(lista)));
+    setCargando(false);
   }
 
-  async function crearPregunta(e: FormEvent) {
-    e.preventDefault();
-    limpiarMensajes();
+  async function seleccionarMateriaParaParciales(idMateria: string) {
+    setParcialMateriaId(idMateria);
+    setParcialTemaId("");
+    setTemasParaParciales([]);
+    setParciales([]);
+    limpiarParcial();
 
-    try {
-      if (tipoDestino === "parcial" && !preguntaParcialId) {
-        setError("Selecciona el parcial al que pertenece la pregunta.");
-        return;
-      }
+    if (!idMateria) return;
 
-      if (tipoDestino === "simulador" && !preguntaSimuladorId) {
-        setError("Selecciona el simulador al que pertenece la pregunta.");
-        return;
-      }
-
-      if (!textoPregunta.trim() && !files.imagen_pregunta) {
-        setError("La pregunta debe tener texto o imagen.");
-        return;
-      }
-
-      const parcialSeleccionado = parciales.find(
-        (parcial) => String(parcial.id) === String(preguntaParcialId)
-      );
-
-      const imagenPregunta = await subirImagen(files.imagen_pregunta, "preguntas");
-      const imagenOpcionA = await subirImagen(files.imagen_opcion_a, "opciones");
-      const imagenOpcionB = await subirImagen(files.imagen_opcion_b, "opciones");
-      const imagenOpcionC = await subirImagen(files.imagen_opcion_c, "opciones");
-      const imagenOpcionD = await subirImagen(files.imagen_opcion_d, "opciones");
-
-      const payload = {
-        materia_id:
-          tipoDestino === "parcial"
-            ? parcialSeleccionado?.materia_id || preguntaMateriaId
-            : null,
-        tema_id:
-          tipoDestino === "parcial"
-            ? parcialSeleccionado?.tema_id || preguntaTemaId
-            : null,
-        parcial_id: tipoDestino === "parcial" ? preguntaParcialId : null,
-        simulador_id: tipoDestino === "simulador" ? preguntaSimuladorId : null,
-        tipo_evaluacion: tipoDestino,
-
-        texto_pregunta: textoPregunta.trim(),
-        pregunta: textoPregunta.trim(),
-        texto: textoPregunta.trim(),
-
-        imagen_pregunta: imagenPregunta,
-
-        opcion_a: opcionA.trim(),
-        opcion_b: opcionB.trim(),
-        opcion_c: opcionC.trim(),
-        opcion_d: opcionD.trim(),
-
-        imagen_opcion_a: imagenOpcionA,
-        imagen_opcion_b: imagenOpcionB,
-        imagen_opcion_c: imagenOpcionC,
-        imagen_opcion_d: imagenOpcionD,
-
-        respuesta_correcta: respuestaCorrecta,
-        respuesta: respuestaCorrecta,
-
-        explicacion: explicacion.trim(),
-        justificacion: explicacion.trim(),
-        dificultad,
-        activa: true,
-        activo: true,
-      };
-
-      const { error } = await supabase.from("preguntas").insert(payload);
-
-      if (error) {
-        console.error(error);
-        setError("Error al guardar pregunta.");
-        return;
-      }
-
-      setTextoPregunta("");
-      setOpcionA("");
-      setOpcionB("");
-      setOpcionC("");
-      setOpcionD("");
-      setRespuestaCorrecta("A");
-      setExplicacion("");
-      setDificultad("Media");
-      setFiles(emptyFiles);
-      setPreviews(emptyPreview);
-      setMensaje("Pregunta agregada correctamente.");
-      cargarTodo();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : "Error al guardar pregunta.");
-    }
+    setCargando(true);
+    const lista = await obtenerTemasDeMateria(idMateria);
+    setTemasParaParciales(lista);
+    setCargando(false);
   }
 
-  async function eliminarPregunta(id: string) {
-    const confirmar = confirm("¿Eliminar esta pregunta?");
-    if (!confirmar) return;
+  async function seleccionarTemaParaParciales(idTema: string) {
+    setParcialTemaId(idTema);
+    setParciales([]);
+    limpiarParcial();
 
-    const { error } = await supabase.from("preguntas").delete().eq("id", id);
+    if (!idTema) return;
 
-    if (error) {
-      console.error(error);
-      setError("Error al eliminar pregunta.");
+    setCargando(true);
+    const lista = await obtenerParcialesDeTema(idTema);
+    setParciales(lista);
+    setParcialOrden(String(siguienteOrden(lista)));
+    setCargando(false);
+  }
+
+  async function guardarMateria() {
+    if (!materiaTitulo.trim()) {
+      alert("Escribe el nombre de la materia.");
       return;
     }
 
-    setMensaje("Pregunta eliminada.");
-    cargarTodo();
+    setGuardando(true);
+
+    const error = await guardarConFallback(
+      TABLA_MATERIAS,
+      crearPayloadsTitulo(
+        materiaTitulo.trim(),
+        materiaDescripcion.trim(),
+        Number(materiaOrden) || 1,
+        []
+      ),
+      materiaEditandoId
+    );
+
+    if (error) {
+      console.error("Error guardando materia:", error);
+      alert("No se pudo guardar la materia.");
+      setGuardando(false);
+      return;
+    }
+
+    await cargarMaterias();
+    limpiarMateria();
+    setGuardando(false);
+  }
+
+  function editarMateria(materia: Registro) {
+    setSeccion("materias");
+    setMateriaEditandoId(materia.id);
+    setMateriaTitulo(obtenerTitulo(materia));
+    setMateriaDescripcion(obtenerDescripcion(materia));
+    setMateriaOrden(String(materia.orden ?? 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function eliminarMateria(id: string | number) {
+    const confirmar = confirm(
+      "¿Seguro que quieres eliminar esta materia? Si tiene temas relacionados, puede fallar."
+    );
+
+    if (!confirmar) return;
+
+    const { error } = await supabase.from(TABLA_MATERIAS).delete().eq("id", id);
+
+    if (error) {
+      console.error("Error eliminando materia:", error);
+      alert("No se pudo eliminar la materia. Puede tener temas relacionados.");
+      return;
+    }
+
+    await cargarMaterias();
+  }
+
+  async function guardarTema() {
+    if (!temaMateriaId) {
+      alert("Selecciona una materia.");
+      return;
+    }
+
+    if (!temaTitulo.trim()) {
+      alert("Escribe el nombre del tema/unidad.");
+      return;
+    }
+
+    setGuardando(true);
+
+    const relaciones = [
+      { materia_id: temaMateriaId },
+      { id_materia: temaMateriaId },
+      { materia: temaMateriaId },
+    ];
+
+    const error = await guardarConFallback(
+      TABLA_TEMAS,
+      crearPayloadsTitulo(
+        temaTitulo.trim(),
+        temaDescripcion.trim(),
+        Number(temaOrden) || 1,
+        relaciones
+      ),
+      temaEditandoId
+    );
+
+    if (error) {
+      console.error("Error guardando tema:", error);
+      alert("No se pudo guardar el tema/unidad.");
+      setGuardando(false);
+      return;
+    }
+
+    const lista = await obtenerTemasDeMateria(temaMateriaId);
+    setTemas(lista);
+    limpiarTema();
+    setTemaOrden(String(siguienteOrden(lista)));
+    setGuardando(false);
+  }
+
+  function editarTema(tema: Registro) {
+    setSeccion("temas");
+    setTemaEditandoId(tema.id);
+    setTemaTitulo(obtenerTitulo(tema));
+    setTemaDescripcion(obtenerDescripcion(tema));
+    setTemaOrden(String(tema.orden ?? 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function eliminarTema(id: string | number) {
+    const confirmar = confirm(
+      "¿Seguro que quieres eliminar este tema/unidad? Si tiene subtemas relacionados, puede fallar."
+    );
+
+    if (!confirmar) return;
+
+    const { error } = await supabase.from(TABLA_TEMAS).delete().eq("id", id);
+
+    if (error) {
+      console.error("Error eliminando tema:", error);
+      alert("No se pudo eliminar el tema. Puede tener subtemas relacionados.");
+      return;
+    }
+
+    if (temaMateriaId) {
+      const lista = await obtenerTemasDeMateria(temaMateriaId);
+      setTemas(lista);
+      setTemaOrden(String(siguienteOrden(lista)));
+    }
+  }
+
+  async function guardarSubtema() {
+    if (!subtemaMateriaId) {
+      alert("Selecciona una materia.");
+      return;
+    }
+
+    if (!subtemaTemaId) {
+      alert("Selecciona un tema/unidad.");
+      return;
+    }
+
+    if (!subtemaTitulo.trim()) {
+      alert("Escribe el nombre del subtema.");
+      return;
+    }
+
+    setGuardando(true);
+
+    const relaciones = [
+      { tema_id: subtemaTemaId },
+      { unidad_id: subtemaTemaId },
+      { id_tema: subtemaTemaId },
+      { id_unidad: subtemaTemaId },
+      { tema: subtemaTemaId },
+      { unidad: subtemaTemaId },
+    ];
+
+    const error = await guardarConFallback(
+      TABLA_SUBTEMAS,
+      crearPayloadsTitulo(
+        subtemaTitulo.trim(),
+        subtemaDescripcion.trim(),
+        Number(subtemaOrden) || 1,
+        relaciones
+      ),
+      subtemaEditandoId
+    );
+
+    if (error) {
+      console.error("Error guardando subtema:", error);
+      alert("No se pudo guardar el subtema.");
+      setGuardando(false);
+      return;
+    }
+
+    const lista = await obtenerSubtemasDeTema(subtemaTemaId);
+    setSubtemas(lista);
+    limpiarSubtema();
+    setSubtemaOrden(String(siguienteOrden(lista)));
+    setGuardando(false);
+  }
+
+  function editarSubtema(subtema: Registro) {
+    setSeccion("subtemas");
+    setSubtemaEditandoId(subtema.id);
+    setSubtemaTitulo(obtenerTitulo(subtema));
+    setSubtemaDescripcion(obtenerDescripcion(subtema));
+    setSubtemaOrden(String(subtema.orden ?? 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function eliminarSubtema(id: string | number) {
+    const confirmar = confirm(
+      "¿Seguro que quieres eliminar este subtema? Si tiene contenido relacionado, puede fallar."
+    );
+
+    if (!confirmar) return;
+
+    const { error } = await supabase.from(TABLA_SUBTEMAS).delete().eq("id", id);
+
+    if (error) {
+      console.error("Error eliminando subtema:", error);
+      alert("No se pudo eliminar el subtema. Puede tener contenido relacionado.");
+      return;
+    }
+
+    if (subtemaTemaId) {
+      const lista = await obtenerSubtemasDeTema(subtemaTemaId);
+      setSubtemas(lista);
+      setSubtemaOrden(String(siguienteOrden(lista)));
+    }
+  }
+
+  async function guardarParcial() {
+    if (!parcialMateriaId) {
+      alert("Selecciona una materia.");
+      return;
+    }
+
+    if (!parcialTemaId) {
+      alert("Selecciona una unidad/tema.");
+      return;
+    }
+
+    if (!parcialTitulo.trim()) {
+      alert("Escribe el nombre del parcial.");
+      return;
+    }
+
+    setGuardando(true);
+
+    const relaciones = [
+      { materia_id: parcialMateriaId, tema_id: parcialTemaId },
+      { materia_id: parcialMateriaId, unidad_id: parcialTemaId },
+      { materia_id: parcialMateriaId, id_tema: parcialTemaId },
+      { materia_id: parcialMateriaId, id_unidad: parcialTemaId },
+      { tema_id: parcialTemaId },
+      { unidad_id: parcialTemaId },
+      { id_tema: parcialTemaId },
+      { id_unidad: parcialTemaId },
+      { tema: parcialTemaId },
+      { unidad: parcialTemaId },
+    ];
+
+    const error = await guardarConFallback(
+      TABLA_PARCIALES,
+      crearPayloadsTitulo(
+        parcialTitulo.trim(),
+        parcialDescripcion.trim(),
+        Number(parcialOrden) || 1,
+        relaciones
+      ),
+      parcialEditandoId
+    );
+
+    if (error) {
+      console.error("Error guardando parcial:", error);
+      alert("No se pudo guardar el parcial.");
+      setGuardando(false);
+      return;
+    }
+
+    const lista = await obtenerParcialesDeTema(parcialTemaId);
+    setParciales(lista);
+    limpiarParcial();
+    setParcialOrden(String(siguienteOrden(lista)));
+    setGuardando(false);
+  }
+
+  function editarParcial(parcial: Registro) {
+    setSeccion("parciales");
+    setParcialEditandoId(parcial.id);
+    setParcialTitulo(obtenerTitulo(parcial));
+    setParcialDescripcion(obtenerDescripcion(parcial));
+    setParcialOrden(String(parcial.orden ?? 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function eliminarParcial(id: string | number) {
+    const confirmar = confirm("¿Seguro que quieres eliminar este parcial?");
+
+    if (!confirmar) return;
+
+    const { error } = await supabase.from(TABLA_PARCIALES).delete().eq("id", id);
+
+    if (error) {
+      console.error("Error eliminando parcial:", error);
+      alert("No se pudo eliminar el parcial.");
+      return;
+    }
+
+    if (parcialTemaId) {
+      const lista = await obtenerParcialesDeTema(parcialTemaId);
+      setParciales(lista);
+      setParcialOrden(String(siguienteOrden(lista)));
+    }
+  }
+
+  async function guardarSimulador() {
+    if (!simuladorTitulo.trim()) {
+      alert("Escribe el nombre del simulador.");
+      return;
+    }
+
+    setGuardando(true);
+
+    const error = await guardarConFallback(
+      TABLA_SIMULADORES,
+      crearPayloadsTitulo(
+        simuladorTitulo.trim(),
+        simuladorDescripcion.trim(),
+        Number(simuladorOrden) || 1,
+        []
+      ),
+      simuladorEditandoId
+    );
+
+    if (error) {
+      console.error("Error guardando simulador:", error);
+      alert("No se pudo guardar el simulador.");
+      setGuardando(false);
+      return;
+    }
+
+    await cargarSimuladores();
+    limpiarSimulador();
+    setGuardando(false);
+  }
+
+  function editarSimulador(simulador: Registro) {
+    setSeccion("simuladores");
+    setSimuladorEditandoId(simulador.id);
+    setSimuladorTitulo(obtenerTitulo(simulador));
+    setSimuladorDescripcion(obtenerDescripcion(simulador));
+    setSimuladorOrden(String(simulador.orden ?? 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function eliminarSimulador(id: string | number) {
+    const confirmar = confirm("¿Seguro que quieres eliminar este simulador?");
+
+    if (!confirmar) return;
+
+    const { error } = await supabase.from(TABLA_SIMULADORES).delete().eq("id", id);
+
+    if (error) {
+      console.error("Error eliminando simulador:", error);
+      alert("No se pudo eliminar el simulador.");
+      return;
+    }
+
+    await cargarSimuladores();
+  }
+
+  async function moverOrden(
+    tabla: string,
+    lista: Registro[],
+    index: number,
+    direccion: -1 | 1,
+    recargar: () => Promise<void>
+  ) {
+    const nuevoIndex = index + direccion;
+
+    if (nuevoIndex < 0 || nuevoIndex >= lista.length) return;
+
+    const actual = lista[index];
+    const objetivo = lista[nuevoIndex];
+
+    const ordenActual = Number(actual.orden ?? index + 1);
+    const ordenObjetivo = Number(objetivo.orden ?? nuevoIndex + 1);
+
+    const r1 = await supabase
+      .from(tabla)
+      .update({ orden: ordenObjetivo })
+      .eq("id", actual.id);
+
+    if (r1.error) {
+      console.error("Error moviendo orden:", r1.error);
+      alert("No se pudo cambiar el orden.");
+      return;
+    }
+
+    const r2 = await supabase
+      .from(tabla)
+      .update({ orden: ordenActual })
+      .eq("id", objetivo.id);
+
+    if (r2.error) {
+      console.error("Error moviendo orden:", r2.error);
+      alert("No se pudo cambiar el orden.");
+      return;
+    }
+
+    await recargar();
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-      <section className="mx-auto max-w-7xl">
-        <div className="mb-8 rounded-3xl border border-slate-800 bg-slate-900 p-8">
-          <p className="mb-2 text-sm font-bold uppercase tracking-[0.3em] text-sky-400">
-            Panel Admin
+    <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
+          <p className="text-sm uppercase tracking-[0.35em] text-blue-300">
+            Admin
           </p>
 
-          <h1 className="text-4xl font-bold">Administrar Examen UABC</h1>
+          <h1 className="mt-3 text-4xl font-bold">
+            Panel de administración
+          </h1>
 
-          <p className="mt-3 text-slate-300">
-            Crea materias, temas, parciales, simuladores y preguntas con texto o imagen.
+          <p className="mt-3 max-w-3xl text-slate-400">
+            Edita materias, temas, subtemas, parciales y simuladores. También puedes modificar el orden, abrir vista previa y administrar preguntas.
           </p>
-        </div>
 
-        {mensaje && (
-          <div className="mb-5 rounded-2xl border border-emerald-500 bg-emerald-950/50 p-4 text-emerald-200">
-            {mensaje}
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-5 rounded-2xl border border-red-500 bg-red-950/50 p-4 text-red-200">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            Cargando admin...
-          </div>
-        ) : (
-          <div className="grid gap-8">
-            <section className="grid gap-6 lg:grid-cols-2">
-              <form
-                onSubmit={crearMateria}
-                className="rounded-3xl border border-slate-800 bg-slate-900 p-6"
+          <div className="mt-6 flex flex-wrap gap-3">
+            {[
+              ["materias", "Materias"],
+              ["temas", "Temas / unidades"],
+              ["subtemas", "Subtemas"],
+              ["parciales", "Parciales"],
+              ["simuladores", "Simuladores"],
+            ].map(([id, texto]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSeccion(id as Seccion)}
+                className={`rounded-xl px-5 py-3 font-semibold transition ${
+                  seccion === id
+                    ? "bg-blue-600 text-white"
+                    : "border border-slate-700 text-slate-300 hover:bg-slate-800"
+                }`}
               >
-                <h2 className="mb-4 text-2xl font-bold">1. Crear materia</h2>
-
-                <input
-                  value={materiaNombre}
-                  onChange={(e) => setMateriaNombre(e.target.value)}
-                  placeholder="Ej. Comprensión lectora"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <textarea
-                  value={materiaDescripcion}
-                  onChange={(e) => setMateriaDescripcion(e.target.value)}
-                  placeholder="Descripción"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <button className="rounded-xl bg-sky-500 px-5 py-3 font-semibold text-slate-950 hover:bg-sky-400">
-                  Guardar materia
-                </button>
-              </form>
-
-              <form
-                onSubmit={crearTema}
-                className="rounded-3xl border border-slate-800 bg-slate-900 p-6"
-              >
-                <h2 className="mb-4 text-2xl font-bold">2. Crear tema</h2>
-
-                <select
-                  value={temaMateriaId}
-                  onChange={(e) => setTemaMateriaId(e.target.value)}
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                >
-                  <option value="">Selecciona materia</option>
-                  {materias.map((materia) => (
-                    <option key={materia.id} value={materia.id}>
-                      {nombreDe(materia)}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  value={temaTitulo}
-                  onChange={(e) => setTemaTitulo(e.target.value)}
-                  placeholder="Ej. Idea principal"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <textarea
-                  value={temaDescripcion}
-                  onChange={(e) => setTemaDescripcion(e.target.value)}
-                  placeholder="Descripción"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <button className="rounded-xl bg-sky-500 px-5 py-3 font-semibold text-slate-950 hover:bg-sky-400">
-                  Guardar tema
-                </button>
-              </form>
-
-              <form
-                onSubmit={crearParcial}
-                className="rounded-3xl border border-slate-800 bg-slate-900 p-6"
-              >
-                <h2 className="mb-4 text-2xl font-bold">
-                  3. Crear parcial dentro de un tema
-                </h2>
-
-                <select
-                  value={parcialMateriaId}
-                  onChange={(e) => {
-                    setParcialMateriaId(e.target.value);
-                    setParcialTemaId("");
-                  }}
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                >
-                  <option value="">Selecciona materia</option>
-                  {materias.map((materia) => (
-                    <option key={materia.id} value={materia.id}>
-                      {nombreDe(materia)}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={parcialTemaId}
-                  onChange={(e) => setParcialTemaId(e.target.value)}
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                >
-                  <option value="">Selecciona tema</option>
-                  {temasDelParcial.map((tema) => (
-                    <option key={tema.id} value={tema.id}>
-                      {nombreDe(tema)}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  value={parcialTitulo}
-                  onChange={(e) => setParcialTitulo(e.target.value)}
-                  placeholder="Ej. Parcial 1"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <textarea
-                  value={parcialDescripcion}
-                  onChange={(e) => setParcialDescripcion(e.target.value)}
-                  placeholder="Descripción"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <input
-                  type="number"
-                  min="1"
-                  value={parcialTiempo}
-                  onChange={(e) => setParcialTiempo(e.target.value)}
-                  placeholder="Tiempo en minutos"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <button className="rounded-xl bg-sky-500 px-5 py-3 font-semibold text-slate-950 hover:bg-sky-400">
-                  Guardar parcial
-                </button>
-              </form>
-
-              <form
-                onSubmit={crearSimulador}
-                className="rounded-3xl border border-slate-800 bg-slate-900 p-6"
-              >
-                <h2 className="mb-4 text-2xl font-bold">4. Crear simulador</h2>
-
-                <input
-                  value={simuladorTitulo}
-                  onChange={(e) => setSimuladorTitulo(e.target.value)}
-                  placeholder="Ej. Simulador general"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <textarea
-                  value={simuladorDescripcion}
-                  onChange={(e) => setSimuladorDescripcion(e.target.value)}
-                  placeholder="Descripción"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <input
-                  type="number"
-                  min="1"
-                  value={simuladorTiempo}
-                  onChange={(e) => setSimuladorTiempo(e.target.value)}
-                  placeholder="Tiempo en minutos"
-                  className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                />
-
-                <button className="rounded-xl bg-sky-500 px-5 py-3 font-semibold text-slate-950 hover:bg-sky-400">
-                  Guardar simulador
-                </button>
-              </form>
-            </section>
-
-            <form
-              onSubmit={crearPregunta}
-              className="rounded-3xl border border-slate-800 bg-slate-900 p-6"
-            >
-              <h2 className="mb-4 text-2xl font-bold">5. Crear pregunta</h2>
-
-              <div className="mb-5 grid gap-4 md:grid-cols-2">
-                <label className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                  <input
-                    type="radio"
-                    checked={tipoDestino === "parcial"}
-                    onChange={() => setTipoDestino("parcial")}
-                    className="mr-2"
-                  />
-                  Pregunta para un parcial
-                </label>
-
-                <label className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                  <input
-                    type="radio"
-                    checked={tipoDestino === "simulador"}
-                    onChange={() => setTipoDestino("simulador")}
-                    className="mr-2"
-                  />
-                  Pregunta para un simulador
-                </label>
-              </div>
-
-              {tipoDestino === "parcial" ? (
-                <div className="mb-5 grid gap-3 md:grid-cols-3">
-                  <select
-                    value={preguntaMateriaId}
-                    onChange={(e) => {
-                      setPreguntaMateriaId(e.target.value);
-                      setPreguntaTemaId("");
-                      setPreguntaParcialId("");
-                    }}
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                  >
-                    <option value="">Materia</option>
-                    {materias.map((materia) => (
-                      <option key={materia.id} value={materia.id}>
-                        {nombreDe(materia)}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={preguntaTemaId}
-                    onChange={(e) => {
-                      setPreguntaTemaId(e.target.value);
-                      setPreguntaParcialId("");
-                    }}
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                  >
-                    <option value="">Tema</option>
-                    {temasDePregunta.map((tema) => (
-                      <option key={tema.id} value={tema.id}>
-                        {nombreDe(tema)}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={preguntaParcialId}
-                    onChange={(e) => setPreguntaParcialId(e.target.value)}
-                    className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                  >
-                    <option value="">Parcial</option>
-                    {parcialesDePregunta.map((parcial) => (
-                      <option key={parcial.id} value={parcial.id}>
-                        {nombreDe(parcial)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <select
-                  value={preguntaSimuladorId}
-                  onChange={(e) => setPreguntaSimuladorId(e.target.value)}
-                  className="mb-5 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-                >
-                  <option value="">Selecciona simulador</option>
-                  {simuladores.map((simulador) => (
-                    <option key={simulador.id} value={simulador.id}>
-                      {nombreDe(simulador)}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <textarea
-                value={textoPregunta}
-                onChange={(e) => setTextoPregunta(e.target.value)}
-                placeholder="Texto de la pregunta"
-                className="mb-4 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-              />
-
-              <CampoImagen
-                label="Imagen principal de la pregunta"
-                preview={previews.imagen_pregunta}
-                onChange={(e) => seleccionarImagen("imagen_pregunta", e)}
-              />
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Opcion
-                  letra="A"
-                  texto={opcionA}
-                  setTexto={setOpcionA}
-                  preview={previews.imagen_opcion_a}
-                  onChange={(e) => seleccionarImagen("imagen_opcion_a", e)}
-                />
-
-                <Opcion
-                  letra="B"
-                  texto={opcionB}
-                  setTexto={setOpcionB}
-                  preview={previews.imagen_opcion_b}
-                  onChange={(e) => seleccionarImagen("imagen_opcion_b", e)}
-                />
-
-                <Opcion
-                  letra="C"
-                  texto={opcionC}
-                  setTexto={setOpcionC}
-                  preview={previews.imagen_opcion_c}
-                  onChange={(e) => seleccionarImagen("imagen_opcion_c", e)}
-                />
-
-                <Opcion
-                  letra="D"
-                  texto={opcionD}
-                  setTexto={setOpcionD}
-                  preview={previews.imagen_opcion_d}
-                  onChange={(e) => seleccionarImagen("imagen_opcion_d", e)}
-                />
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
-                <select
-                  value={respuestaCorrecta}
-                  onChange={(e) => setRespuestaCorrecta(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                >
-                  <option value="A">Respuesta: A</option>
-                  <option value="B">Respuesta: B</option>
-                  <option value="C">Respuesta: C</option>
-                  <option value="D">Respuesta: D</option>
-                </select>
-
-                <select
-                  value={dificultad}
-                  onChange={(e) => setDificultad(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-950 p-3"
-                >
-                  <option value="Baja">Baja</option>
-                  <option value="Media">Media</option>
-                  <option value="Alta">Alta</option>
-                </select>
-              </div>
-
-              <textarea
-                value={explicacion}
-                onChange={(e) => setExplicacion(e.target.value)}
-                placeholder="Explicación o justificación de la respuesta correcta"
-                className="mt-4 w-full rounded-xl border border-slate-700 bg-slate-950 p-3"
-              />
-
-              <button className="mt-5 rounded-xl bg-sky-500 px-6 py-3 font-semibold text-slate-950 hover:bg-sky-400">
-                Guardar pregunta
+                {texto}
               </button>
-            </form>
+            ))}
+          </div>
+        </header>
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-              <h2 className="mb-4 text-2xl font-bold">Resumen de contenido</h2>
+        {cargando && (
+          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 text-slate-300">
+            Cargando...
+          </div>
+        )}
 
-              <div className="grid gap-4 md:grid-cols-5">
-                <ResumenCard titulo="Materias" cantidad={materias.length} />
-                <ResumenCard titulo="Temas" cantidad={temas.length} />
-                <ResumenCard titulo="Parciales" cantidad={parciales.length} />
-                <ResumenCard titulo="Simuladores" cantidad={simuladores.length} />
-                <ResumenCard titulo="Preguntas" cantidad={preguntas.length} />
+        {seccion === "materias" && (
+          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-xl font-bold">
+                {materiaEditandoId ? "Editar materia" : "Crear materia"}
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Nombre de la materia
+                  </label>
+                  <input
+                    value={materiaTitulo}
+                    onChange={(e) => setMateriaTitulo(e.target.value)}
+                    placeholder="Ejemplo: Comprensión lectora"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Descripción
+                  </label>
+                  <textarea
+                    value={materiaDescripcion}
+                    onChange={(e) => setMateriaDescripcion(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Orden
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={materiaOrden}
+                    onChange={(e) => setMateriaOrden(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={guardarMateria}
+                    disabled={guardando}
+                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {guardando
+                      ? "Guardando..."
+                      : materiaEditandoId
+                      ? "Guardar cambios"
+                      : "Crear materia"}
+                  </button>
+
+                  {materiaEditandoId && (
+                    <button
+                      type="button"
+                      onClick={limpiarMateria}
+                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-              <h2 className="mb-4 text-2xl font-bold">Preguntas registradas</h2>
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-2xl font-bold">
+                Materias registradas
+              </h2>
 
-              {preguntas.length === 0 ? (
-                <p className="text-slate-400">Todavía no hay preguntas.</p>
-              ) : (
-                <div className="grid gap-4">
-                  {preguntas.map((pregunta) => (
-                    <div
-                      key={pregunta.id}
-                      className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-xs font-bold uppercase text-sky-400">
-                            {pregunta.parcial_id
-                              ? "Parcial"
-                              : pregunta.simulador_id
-                                ? "Simulador"
-                                : "Sin asignar"}
+              <div className="space-y-4">
+                {materias.map((materia, index) => (
+                  <article
+                    key={materia.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-500">
+                          Orden: {materia.orden ?? "Sin orden"}
+                        </p>
+
+                        <h3 className="mt-1 text-2xl font-bold">
+                          {obtenerTitulo(materia)}
+                        </h3>
+
+                        {obtenerDescripcion(materia) && (
+                          <p className="mt-2 text-slate-400">
+                            {obtenerDescripcion(materia)}
                           </p>
+                        )}
+                      </div>
 
-                          <h3 className="mt-1 font-semibold">
-                            {pregunta.texto_pregunta ||
-                              pregunta.pregunta ||
-                              "Pregunta con imagen"}
-                          </h3>
-
-                          {pregunta.imagen_pregunta && (
-                            <img
-                              src={pregunta.imagen_pregunta}
-                              alt="Imagen de pregunta"
-                              className="mt-3 max-h-60 w-full rounded-xl bg-white object-contain"
-                            />
-                          )}
-
-                          <p className="mt-2 text-sm text-slate-400">
-                            Respuesta correcta:{" "}
-                            {pregunta.respuesta_correcta || "Sin definir"}
-                          </p>
-                        </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_MATERIAS, materias, index, -1, cargarMaterias)
+                          }
+                          disabled={index === 0}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↑
+                        </button>
 
                         <button
                           type="button"
-                          onClick={() => eliminarPregunta(pregunta.id)}
-                          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold hover:bg-red-500"
+                          onClick={() =>
+                            moverOrden(TABLA_MATERIAS, materias, index, 1, cargarMaterias)
+                          }
+                          disabled={index === materias.length - 1}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↓
+                        </button>
+
+                        <Link
+                          href={`/materias/${materia.id}`}
+                          target="_blank"
+                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
+                        >
+                          Vista alumno
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => editarMateria(materia)}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+                        >
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => eliminarMateria(materia.id)}
+                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
                         >
                           Eliminar
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </article>
+                ))}
+              </div>
             </section>
           </div>
         )}
-      </section>
+
+        {seccion === "temas" && (
+          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-xl font-bold">
+                {temaEditandoId ? "Editar tema/unidad" : "Crear tema/unidad"}
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Materia
+                  </label>
+                  <select
+                    value={temaMateriaId}
+                    onChange={(e) => seleccionarMateriaParaTemas(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  >
+                    <option value="">Selecciona una materia</option>
+                    {materias.map((materia) => (
+                      <option key={materia.id} value={materia.id}>
+                        {obtenerTitulo(materia)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Nombre del tema/unidad
+                  </label>
+                  <input
+                    value={temaTitulo}
+                    onChange={(e) => setTemaTitulo(e.target.value)}
+                    placeholder="Ejemplo: Idea principal"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Descripción
+                  </label>
+                  <textarea
+                    value={temaDescripcion}
+                    onChange={(e) => setTemaDescripcion(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Orden
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={temaOrden}
+                    onChange={(e) => setTemaOrden(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={guardarTema}
+                    disabled={guardando || !temaMateriaId}
+                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {guardando
+                      ? "Guardando..."
+                      : temaEditandoId
+                      ? "Guardar cambios"
+                      : "Crear tema"}
+                  </button>
+
+                  {temaEditandoId && (
+                    <button
+                      type="button"
+                      onClick={limpiarTema}
+                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-2xl font-bold">
+                Temas de la materia
+              </h2>
+
+              {!temaMateriaId && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
+                  Selecciona una materia para ver sus temas.
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {temas.map((tema, index) => (
+                  <article
+                    key={tema.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-500">
+                          Orden: {tema.orden ?? "Sin orden"}
+                        </p>
+
+                        <h3 className="mt-1 text-2xl font-bold">
+                          {obtenerTitulo(tema)}
+                        </h3>
+
+                        {obtenerDescripcion(tema) && (
+                          <p className="mt-2 text-slate-400">
+                            {obtenerDescripcion(tema)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_TEMAS, temas, index, -1, async () => {
+                              if (temaMateriaId) {
+                                const lista = await obtenerTemasDeMateria(temaMateriaId);
+                                setTemas(lista);
+                              }
+                            })
+                          }
+                          disabled={index === 0}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↑
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_TEMAS, temas, index, 1, async () => {
+                              if (temaMateriaId) {
+                                const lista = await obtenerTemasDeMateria(temaMateriaId);
+                                setTemas(lista);
+                              }
+                            })
+                          }
+                          disabled={index === temas.length - 1}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↓
+                        </button>
+
+                        <Link
+                          href={temaMateriaId ? `/materias/${temaMateriaId}` : "/materias"}
+                          target="_blank"
+                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
+                        >
+                          Vista alumno
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => editarTema(tema)}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+                        >
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => eliminarTema(tema.id)}
+                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {seccion === "subtemas" && (
+          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-xl font-bold">
+                {subtemaEditandoId ? "Editar subtema" : "Crear subtema"}
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Materia
+                  </label>
+                  <select
+                    value={subtemaMateriaId}
+                    onChange={(e) => seleccionarMateriaParaSubtemas(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  >
+                    <option value="">Selecciona una materia</option>
+                    {materias.map((materia) => (
+                      <option key={materia.id} value={materia.id}>
+                        {obtenerTitulo(materia)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Tema / unidad
+                  </label>
+                  <select
+                    value={subtemaTemaId}
+                    onChange={(e) => seleccionarTemaParaSubtemas(e.target.value)}
+                    disabled={!subtemaMateriaId}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
+                  >
+                    <option value="">Selecciona un tema/unidad</option>
+                    {temasParaSubtemas.map((tema) => (
+                      <option key={tema.id} value={tema.id}>
+                        {obtenerTitulo(tema)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Nombre del subtema
+                  </label>
+                  <input
+                    value={subtemaTitulo}
+                    onChange={(e) => setSubtemaTitulo(e.target.value)}
+                    placeholder="Ejemplo: Idea principal explícita"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Descripción
+                  </label>
+                  <textarea
+                    value={subtemaDescripcion}
+                    onChange={(e) => setSubtemaDescripcion(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Orden
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={subtemaOrden}
+                    onChange={(e) => setSubtemaOrden(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={guardarSubtema}
+                    disabled={guardando || !subtemaTemaId}
+                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {guardando
+                      ? "Guardando..."
+                      : subtemaEditandoId
+                      ? "Guardar cambios"
+                      : "Crear subtema"}
+                  </button>
+
+                  {subtemaEditandoId && (
+                    <button
+                      type="button"
+                      onClick={limpiarSubtema}
+                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+
+                <Link
+                  href="/admin/contenido-subtemas"
+                  className="inline-flex rounded-xl border border-blue-700 px-4 py-3 font-semibold text-blue-300 hover:bg-blue-950"
+                >
+                  Administrar contenido →
+                </Link>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-2xl font-bold">
+                Subtemas del tema
+              </h2>
+
+              {!subtemaTemaId && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
+                  Selecciona una materia y un tema para ver sus subtemas.
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {subtemas.map((subtema, index) => (
+                  <article
+                    key={subtema.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-500">
+                          Orden: {subtema.orden ?? "Sin orden"}
+                        </p>
+
+                        <h3 className="mt-1 text-2xl font-bold">
+                          {obtenerTitulo(subtema)}
+                        </h3>
+
+                        {obtenerDescripcion(subtema) && (
+                          <p className="mt-2 text-slate-400">
+                            {obtenerDescripcion(subtema)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_SUBTEMAS, subtemas, index, -1, async () => {
+                              if (subtemaTemaId) {
+                                const lista = await obtenerSubtemasDeTema(subtemaTemaId);
+                                setSubtemas(lista);
+                              }
+                            })
+                          }
+                          disabled={index === 0}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↑
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_SUBTEMAS, subtemas, index, 1, async () => {
+                              if (subtemaTemaId) {
+                                const lista = await obtenerSubtemasDeTema(subtemaTemaId);
+                                setSubtemas(lista);
+                              }
+                            })
+                          }
+                          disabled={index === subtemas.length - 1}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↓
+                        </button>
+
+                        <Link
+                          href={subtemaMateriaId ? `/materias/${subtemaMateriaId}` : "/materias"}
+                          target="_blank"
+                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
+                        >
+                          Vista alumno
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => editarSubtema(subtema)}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+                        >
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => eliminarSubtema(subtema.id)}
+                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {seccion === "parciales" && (
+          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-xl font-bold">
+                {parcialEditandoId ? "Editar parcial" : "Crear parcial"}
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Materia
+                  </label>
+                  <select
+                    value={parcialMateriaId}
+                    onChange={(e) => seleccionarMateriaParaParciales(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  >
+                    <option value="">Selecciona una materia</option>
+                    {materias.map((materia) => (
+                      <option key={materia.id} value={materia.id}>
+                        {obtenerTitulo(materia)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Unidad / tema
+                  </label>
+                  <select
+                    value={parcialTemaId}
+                    onChange={(e) => seleccionarTemaParaParciales(e.target.value)}
+                    disabled={!parcialMateriaId}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
+                  >
+                    <option value="">Selecciona una unidad/tema</option>
+                    {temasParaParciales.map((tema) => (
+                      <option key={tema.id} value={tema.id}>
+                        {obtenerTitulo(tema)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Nombre del parcial
+                  </label>
+                  <input
+                    value={parcialTitulo}
+                    onChange={(e) => setParcialTitulo(e.target.value)}
+                    placeholder="Ejemplo: Parcial de idea principal"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Descripción
+                  </label>
+                  <textarea
+                    value={parcialDescripcion}
+                    onChange={(e) => setParcialDescripcion(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Orden
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={parcialOrden}
+                    onChange={(e) => setParcialOrden(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={guardarParcial}
+                    disabled={guardando || !parcialTemaId}
+                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {guardando
+                      ? "Guardando..."
+                      : parcialEditandoId
+                      ? "Guardar cambios"
+                      : "Crear parcial"}
+                  </button>
+
+                  {parcialEditandoId && (
+                    <button
+                      type="button"
+                      onClick={limpiarParcial}
+                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+
+                <Link
+                  href="/admin/preguntas-parciales"
+                  className="inline-flex rounded-xl border border-yellow-700 px-4 py-3 font-semibold text-yellow-300 hover:bg-yellow-950"
+                >
+                  Administrar preguntas →
+                </Link>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-2xl font-bold">
+                Parciales de la unidad
+              </h2>
+
+              {!parcialTemaId && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
+                  Selecciona una materia y unidad para ver sus parciales.
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {parciales.map((parcial, index) => (
+                  <article
+                    key={parcial.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-500">
+                          Orden: {parcial.orden ?? "Sin orden"}
+                        </p>
+
+                        <h3 className="mt-1 text-2xl font-bold">
+                          {obtenerTitulo(parcial)}
+                        </h3>
+
+                        {obtenerDescripcion(parcial) && (
+                          <p className="mt-2 text-slate-400">
+                            {obtenerDescripcion(parcial)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_PARCIALES, parciales, index, -1, async () => {
+                              if (parcialTemaId) {
+                                const lista = await obtenerParcialesDeTema(parcialTemaId);
+                                setParciales(lista);
+                              }
+                            })
+                          }
+                          disabled={index === 0}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↑
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_PARCIALES, parciales, index, 1, async () => {
+                              if (parcialTemaId) {
+                                const lista = await obtenerParcialesDeTema(parcialTemaId);
+                                setParciales(lista);
+                              }
+                            })
+                          }
+                          disabled={index === parciales.length - 1}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↓
+                        </button>
+
+                        <Link
+                          href={`/parciales/${parcial.id}`}
+                          target="_blank"
+                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
+                        >
+                          Vista alumno
+                        </Link>
+
+                        <Link
+                          href="/admin/preguntas-parciales"
+                          className="rounded-lg border border-yellow-700 px-3 py-2 text-sm font-semibold text-yellow-300 hover:bg-yellow-950"
+                        >
+                          Preguntas
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => editarParcial(parcial)}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+                        >
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => eliminarParcial(parcial.id)}
+                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {seccion === "simuladores" && (
+          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-xl font-bold">
+                {simuladorEditandoId ? "Editar simulador" : "Crear simulador"}
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Nombre del simulador
+                  </label>
+                  <input
+                    value={simuladorTitulo}
+                    onChange={(e) => setSimuladorTitulo(e.target.value)}
+                    placeholder="Ejemplo: Simulador general 1"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Descripción
+                  </label>
+                  <textarea
+                    value={simuladorDescripcion}
+                    onChange={(e) => setSimuladorDescripcion(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Orden
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={simuladorOrden}
+                    onChange={(e) => setSimuladorOrden(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={guardarSimulador}
+                    disabled={guardando}
+                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {guardando
+                      ? "Guardando..."
+                      : simuladorEditandoId
+                      ? "Guardar cambios"
+                      : "Crear simulador"}
+                  </button>
+
+                  {simuladorEditandoId && (
+                    <button
+                      type="button"
+                      onClick={limpiarSimulador}
+                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+
+                <Link
+                  href="/admin/preguntas-simuladores"
+                  className="inline-flex rounded-xl border border-cyan-700 px-4 py-3 font-semibold text-cyan-300 hover:bg-cyan-950"
+                >
+                  Administrar preguntas →
+                </Link>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+              <h2 className="mb-5 text-2xl font-bold">
+                Simuladores registrados
+              </h2>
+
+              {simuladores.length === 0 && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
+                  Todavía no hay simuladores.
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {simuladores.map((simulador, index) => (
+                  <article
+                    key={simulador.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-500">
+                          Orden: {simulador.orden ?? "Sin orden"}
+                        </p>
+
+                        <h3 className="mt-1 text-2xl font-bold">
+                          {obtenerTitulo(simulador)}
+                        </h3>
+
+                        {obtenerDescripcion(simulador) && (
+                          <p className="mt-2 text-slate-400">
+                            {obtenerDescripcion(simulador)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_SIMULADORES, simuladores, index, -1, cargarSimuladores)
+                          }
+                          disabled={index === 0}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↑
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            moverOrden(TABLA_SIMULADORES, simuladores, index, 1, cargarSimuladores)
+                          }
+                          disabled={index === simuladores.length - 1}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          ↓
+                        </button>
+
+                        <Link
+                          href={`/simuladores/${simulador.id}`}
+                          target="_blank"
+                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
+                        >
+                          Vista alumno
+                        </Link>
+
+                        <Link
+                          href="/admin/preguntas-simuladores"
+                          className="rounded-lg border border-cyan-700 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-950"
+                        >
+                          Preguntas
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => editarSimulador(simulador)}
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+                        >
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => eliminarSimulador(simulador.id)}
+                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
     </main>
-  );
-}
-
-function CampoImagen({
-  label,
-  preview,
-  onChange,
-}: {
-  label: string;
-  preview: string;
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-      <label className="mb-2 block font-semibold">{label}</label>
-
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        onChange={onChange}
-        className="text-sm text-slate-300"
-      />
-
-      {preview && (
-        <img
-          src={preview}
-          alt="Vista previa"
-          className="mt-3 max-h-64 w-full rounded-xl bg-white object-contain"
-        />
-      )}
-    </div>
-  );
-}
-
-function Opcion({
-  letra,
-  texto,
-  setTexto,
-  preview,
-  onChange,
-}: {
-  letra: string;
-  texto: string;
-  setTexto: (value: string) => void;
-  preview: string;
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-      <h3 className="mb-3 font-bold text-sky-400">Opción {letra}</h3>
-
-      <input
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        placeholder={`Texto de opción ${letra}`}
-        className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-900 p-3"
-      />
-
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        onChange={onChange}
-        className="text-sm text-slate-300"
-      />
-
-      {preview && (
-        <img
-          src={preview}
-          alt={`Imagen opción ${letra}`}
-          className="mt-3 max-h-48 w-full rounded-xl bg-white object-contain"
-        />
-      )}
-    </div>
-  );
-}
-
-function ResumenCard({
-  titulo,
-  cantidad,
-}: {
-  titulo: string;
-  cantidad: number;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-      <p className="text-sm text-slate-400">{titulo}</p>
-      <p className="mt-2 text-4xl font-bold text-sky-400">{cantidad}</p>
-    </div>
   );
 }
