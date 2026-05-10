@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import AlumnoProtegido from "@/components/AlumnoProtegido";
 
 type Registro = {
   id: string | number;
@@ -30,7 +31,9 @@ const TABLA_SUBTEMAS = "subtemas";
 const TABLA_PARCIALES = "parciales";
 
 export default function MateriasPage() {
-  const [materiasConDatos, setMateriasConDatos] = useState<MateriaConDatos[]>([]);
+  const [materiasConDatos, setMateriasConDatos] = useState<MateriaConDatos[]>(
+    []
+  );
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -49,7 +52,9 @@ export default function MateriasPage() {
 
   function obtenerTitulo(item: Registro | undefined | null) {
     if (!item) return "";
-    return String(item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`);
+    return String(
+      item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`
+    );
   }
 
   function obtenerDescripcion(item: Registro | undefined | null) {
@@ -187,7 +192,9 @@ export default function MateriasPage() {
       const totalSubtemas = todosLosSubtemas.length;
 
       const porcentaje =
-        totalSubtemas > 0 ? Math.round((completados / totalSubtemas) * 100) : 0;
+        totalSubtemas > 0
+          ? Math.round((completados / totalSubtemas) * 100)
+          : 0;
 
       resultado.push({
         materia,
@@ -205,116 +212,124 @@ export default function MateriasPage() {
 
   if (cargando) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-        <section className="mx-auto max-w-7xl rounded-3xl border border-slate-800 bg-slate-900 p-8">
-          <p className="text-slate-300">Cargando materias...</p>
-        </section>
-      </main>
+      <AlumnoProtegido>
+        <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+          <section className="mx-auto max-w-7xl rounded-3xl border border-slate-800 bg-slate-900 p-8">
+            <p className="text-slate-300">Cargando materias...</p>
+          </section>
+        </main>
+      </AlumnoProtegido>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-      <div className="mx-auto max-w-7xl">
-        <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
-          <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">
-            Materias
-          </p>
-
-          <h1 className="mt-3 text-4xl font-bold">Materias disponibles</h1>
-
-          <p className="mt-4 max-w-3xl text-slate-300">
-            Selecciona una materia para ver sus temas, contenido académico y parciales disponibles.
-          </p>
-
-          <Link
-            href="/panel-alumno"
-            className="mt-5 inline-flex rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800"
-          >
-            Volver al panel
-          </Link>
-        </section>
-
-        {materiasConDatos.length === 0 ? (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-8">
-            <h2 className="text-2xl font-bold">Todavía no hay materias</h2>
-            <p className="mt-2 text-slate-400">
-              Cuando agregues materias desde el panel admin, aparecerán aquí.
+    <AlumnoProtegido>
+      <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+        <div className="mx-auto max-w-7xl">
+          <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
+            <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">
+              Materias
             </p>
+
+            <h1 className="mt-3 text-4xl font-bold">Materias disponibles</h1>
+
+            <p className="mt-4 max-w-3xl text-slate-300">
+              Selecciona una materia para ver sus temas, contenido académico y
+              parciales disponibles.
+            </p>
+
+            <Link
+              href="/"
+              className="mt-5 inline-flex rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800"
+            >
+              Volver al inicio
+            </Link>
           </section>
-        ) : (
-          <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {materiasConDatos.map((item) => {
-              const materia = item.materia;
-              const materiaId = String(materia.id);
-              const titulo = obtenerTitulo(materia);
-              const descripcion = obtenerDescripcion(materia);
 
-              return (
-                <article
-                  key={materia.id}
-                  className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl"
-                >
-                  <p className="text-sm font-bold uppercase tracking-wider text-cyan-300">
-                    Materia
-                  </p>
+          {materiasConDatos.length === 0 ? (
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-8">
+              <h2 className="text-2xl font-bold">Todavía no hay materias</h2>
+              <p className="mt-2 text-slate-400">
+                Cuando agregues materias desde el panel admin, aparecerán aquí.
+              </p>
+            </section>
+          ) : (
+            <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {materiasConDatos.map((item) => {
+                const materia = item.materia;
+                const materiaId = String(materia.id);
+                const titulo = obtenerTitulo(materia);
+                const descripcion = obtenerDescripcion(materia);
 
-                  <h2 className="mt-3 text-2xl font-bold">{titulo}</h2>
-
-                  {descripcion && (
-                    <p className="mt-4 min-h-[48px] text-sm leading-relaxed text-slate-300">
-                      {descripcion}
-                    </p>
-                  )}
-
-                  <div className="mt-6 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-slate-950 p-4">
-                      <p className="text-sm text-blue-300">Temas</p>
-                      <p className="mt-2 text-2xl font-bold text-emerald-400">
-                        {item.temas.length}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-950 p-4">
-                      <p className="text-sm text-blue-300">Parciales</p>
-                      <p className="mt-2 text-2xl font-bold text-yellow-300">
-                        {item.parciales}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-4">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-white">Avance</p>
-                      <p className="text-sm font-semibold text-slate-300">
-                        {item.porcentaje}%
-                      </p>
-                    </div>
-
-                    <div className="h-3 overflow-hidden rounded-full bg-slate-800">
-                      <div
-                        className="h-full rounded-full bg-blue-600 transition-all"
-                        style={{ width: `${item.porcentaje}%` }}
-                      />
-                    </div>
-
-                    <p className="mt-2 text-xs text-slate-400">
-                      {item.completados} de {item.subtemas.length} subtemas completados
-                    </p>
-                  </div>
-
-                  <Link
-                    href={`/materias/${materiaId}`}
-                    className="mt-5 inline-flex font-bold text-cyan-300 hover:text-cyan-200"
+                return (
+                  <article
+                    key={materia.id}
+                    className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl"
                   >
-                    Ver temas →
-                  </Link>
-                </article>
-              );
-            })}
-          </section>
-        )}
-      </div>
-    </main>
+                    <p className="text-sm font-bold uppercase tracking-wider text-cyan-300">
+                      Materia
+                    </p>
+
+                    <h2 className="mt-3 text-2xl font-bold">{titulo}</h2>
+
+                    {descripcion && (
+                      <p className="mt-4 min-h-[48px] text-sm leading-relaxed text-slate-300">
+                        {descripcion}
+                      </p>
+                    )}
+
+                    <div className="mt-6 grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl bg-slate-950 p-4">
+                        <p className="text-sm text-blue-300">Temas</p>
+                        <p className="mt-2 text-2xl font-bold text-emerald-400">
+                          {item.temas.length}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-slate-950 p-4">
+                        <p className="text-sm text-blue-300">Parciales</p>
+                        <p className="mt-2 text-2xl font-bold text-yellow-300">
+                          {item.parciales}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-white">
+                          Avance
+                        </p>
+                        <p className="text-sm font-semibold text-slate-300">
+                          {item.porcentaje}%
+                        </p>
+                      </div>
+
+                      <div className="h-3 overflow-hidden rounded-full bg-slate-800">
+                        <div
+                          className="h-full rounded-full bg-blue-600 transition-all"
+                          style={{ width: `${item.porcentaje}%` }}
+                        />
+                      </div>
+
+                      <p className="mt-2 text-xs text-slate-400">
+                        {item.completados} de {item.subtemas.length} subtemas
+                        completados
+                      </p>
+                    </div>
+
+                    <Link
+                      href={`/materias/${materiaId}`}
+                      className="mt-5 inline-flex font-bold text-cyan-300 hover:text-cyan-200"
+                    >
+                      Ver temas →
+                    </Link>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+        </div>
+      </main>
+    </AlumnoProtegido>
   );
 }
