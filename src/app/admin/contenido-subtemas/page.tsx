@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  type ClipboardEvent,
+  type ChangeEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Registro = {
@@ -8,104 +15,67 @@ type Registro = {
   nombre?: string;
   titulo?: string;
   title?: string;
+  descripcion?: string;
+  description?: string;
   orden?: number;
-  materia_id?: string | number;
-  unidad_id?: string | number;
-  tema_id?: string | number;
-  subtema_id?: string | number;
-  contenido?: string;
-  texto?: string;
-  texto_html?: string;
-  contenido_html?: string;
-  video_url?: string;
-  url_video?: string;
-  imagen_url?: string;
-  image_url?: string;
-  archivo_url?: string;
-  material_url?: string;
-  documento_url?: string;
-  [key: string]: unknown;
+  [key: string]: any;
+};
+
+type BloqueContenido = {
+  id: string;
+  subtema_id: string;
+  tipo: "texto" | "imagen" | "video" | "pdf";
+  titulo: string | null;
+  contenido: string | null;
+  url: string | null;
+  alineacion: "izquierda" | "centro" | "derecha" | "justificado";
+  tamano_texto: "pequeno" | "normal" | "grande" | "titulo";
+  orden: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 const TABLA_MATERIAS = "materias";
 const TABLA_TEMAS = "temas";
 const TABLA_SUBTEMAS = "subtemas";
 const TABLA_CONTENIDO = "contenido_subtemas";
+const BUCKET_CONTENIDO = "contenido-subtemas";
 
-export default function ContenidoSubtemasPage() {
+export default function AdminContenidoSubtemasPage() {
   const editorRef = useRef<HTMLDivElement | null>(null);
 
   const [materias, setMaterias] = useState<Registro[]>([]);
   const [temas, setTemas] = useState<Registro[]>([]);
   const [subtemas, setSubtemas] = useState<Registro[]>([]);
-  const [contenidos, setContenidos] = useState<Registro[]>([]);
 
   const [materiaId, setMateriaId] = useState("");
   const [temaId, setTemaId] = useState("");
   const [subtemaId, setSubtemaId] = useState("");
+  const [bloquePrincipalId, setBloquePrincipalId] = useState<string | null>(
+    null
+  );
 
-  const [contenidoHtml, setContenidoHtml] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
-  const [imagenUrl, setImagenUrl] = useState("");
-  const [archivoUrl, setArchivoUrl] = useState("");
-  const [orden, setOrden] = useState("1");
-
-  const [editandoId, setEditandoId] = useState<string | number | null>(null);
+  const [recursoUrl, setRecursoUrl] = useState("");
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [origen, setOrigen] = useState("");
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false);
+  const [mensaje, setMensaje] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigen(window.location.origin);
-    }
-
-    cargarMaterias();
+    cargarDatosIniciales();
   }, []);
 
-  useEffect(() => {
-    if (!materiaId) {
-      setTemas([]);
-      setSubtemas([]);
-      setContenidos([]);
-      setTemaId("");
-      setSubtemaId("");
-      limpiarFormulario();
-      return;
-    }
-
-    cargarTemas(materiaId);
-  }, [materiaId]);
-
-  useEffect(() => {
-    if (!temaId) {
-      setSubtemas([]);
-      setContenidos([]);
-      setSubtemaId("");
-      limpiarFormulario();
-      return;
-    }
-
-    cargarSubtemas(temaId);
-  }, [temaId]);
-
-  useEffect(() => {
-    if (!subtemaId) {
-      setContenidos([]);
-      limpiarFormulario();
-      return;
-    }
-
-    cargarContenidos(subtemaId);
-  }, [subtemaId]);
-
-  const subtemaSeleccionado = useMemo(() => {
-    return subtemas.find((item) => String(item.id) === String(subtemaId));
-  }, [subtemas, subtemaId]);
-
-  function obtenerTitulo(item: Registro | undefined) {
+  function obtenerTitulo(item: Registro | null | undefined) {
     if (!item) return "";
-    return String(item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`);
+    return String(
+      item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`
+    );
+  }
+
+  function obtenerDescripcion(item: Registro | null | undefined) {
+    if (!item) return "";
+    return String(item.descripcion ?? item.description ?? "");
   }
 
   function ordenarLista(lista: Registro[]) {
@@ -119,760 +89,1030 @@ export default function ContenidoSubtemasPage() {
     });
   }
 
-  async function cargarMaterias() {
-    setCargando(true);
+  function ordenarBloques(lista: BloqueContenido[]) {
+    return [...lista].sort((a, b) => {
+      const ordenA = Number(a.orden ?? 0);
+      const ordenB = Number(b.orden ?? 0);
 
-    const { data, error } = await supabase.from(TABLA_MATERIAS).select("*");
+      if (ordenA !== ordenB) return ordenA - ordenB;
 
-    if (error) {
-      console.error("Error cargando materias:", error);
-      alert("No se pudieron cargar las materias.");
-      setCargando(false);
-      return;
-    }
-
-    setMaterias(ordenarLista(data ?? []));
-    setCargando(false);
+      return String(a.id).localeCompare(String(b.id));
+    });
   }
 
-  async function cargarTemas(idMateria: string) {
-    setCargando(true);
-    setTemaId("");
-    setSubtemaId("");
-    setSubtemas([]);
-    setContenidos([]);
-    limpiarFormulario();
+  async function consultarConFallback(
+    tabla: string,
+    filtros: { columna: string; valor: string }[]
+  ) {
+    let primeraRespuestaValida: Registro[] = [];
 
-    let dataFinal: Registro[] | null = null;
-    let errorFinal: unknown = null;
-
-    const intentos = [
-      supabase.from(TABLA_TEMAS).select("*").eq("materia_id", idMateria),
-      supabase.from(TABLA_TEMAS).select("*").eq("id_materia", idMateria),
-      supabase.from(TABLA_TEMAS).select("*").eq("materia", idMateria),
-    ];
-
-    for (const intento of intentos) {
-      const { data, error } = await intento;
+    for (const filtro of filtros) {
+      const { data, error } = await supabase
+        .from(tabla)
+        .select("*")
+        .eq(filtro.columna, filtro.valor);
 
       if (!error) {
-        dataFinal = data ?? [];
-        errorFinal = null;
-        break;
-      }
+        const lista = data ?? [];
 
-      errorFinal = error;
+        if (primeraRespuestaValida.length === 0) {
+          primeraRespuestaValida = lista;
+        }
+
+        if (lista.length > 0) {
+          return lista;
+        }
+      }
     }
 
-    if (errorFinal) {
-      console.error("Error cargando temas:", errorFinal);
-      alert("No se pudieron cargar los temas/unidades.");
+    return primeraRespuestaValida;
+  }
+
+  async function cargarDatosIniciales() {
+    setCargando(true);
+    setError("");
+
+    const params = new URLSearchParams(window.location.search);
+
+    const materiaUrl = params.get("materia") || "";
+    const temaUrl = params.get("tema") || "";
+    const subtemaUrl = params.get("subtema") || "";
+
+    const { data: materiasData, error: materiasError } = await supabase
+      .from(TABLA_MATERIAS)
+      .select("*");
+
+    if (materiasError) {
+      setError("No se pudieron cargar las materias.");
+      console.error(materiasError);
       setCargando(false);
       return;
     }
 
-    setTemas(ordenarLista(dataFinal ?? []));
+    setMaterias(ordenarLista(materiasData ?? []));
+
+    if (materiaUrl) {
+      setMateriaId(materiaUrl);
+
+      const temasLista = await consultarConFallback(TABLA_TEMAS, [
+        { columna: "materia_id", valor: materiaUrl },
+        { columna: "id_materia", valor: materiaUrl },
+        { columna: "materia", valor: materiaUrl },
+      ]);
+
+      setTemas(ordenarLista(temasLista));
+    }
+
+    if (temaUrl) {
+      setTemaId(temaUrl);
+
+      const subtemasLista = await consultarConFallback(TABLA_SUBTEMAS, [
+        { columna: "tema_id", valor: temaUrl },
+        { columna: "unidad_id", valor: temaUrl },
+        { columna: "id_tema", valor: temaUrl },
+        { columna: "id_unidad", valor: temaUrl },
+        { columna: "tema", valor: temaUrl },
+        { columna: "unidad", valor: temaUrl },
+      ]);
+
+      setSubtemas(ordenarLista(subtemasLista));
+    }
+
+    if (subtemaUrl) {
+      setSubtemaId(subtemaUrl);
+      await cargarContenido(subtemaUrl);
+    }
+
     setCargando(false);
   }
 
-  async function cargarSubtemas(idTema: string) {
+  async function cargarContenido(idSubtema: string) {
+    if (!idSubtema) return;
+
     setCargando(true);
-    setSubtemaId("");
-    setContenidos([]);
-    limpiarFormulario();
+    setError("");
+    setMensaje("");
 
-    let dataFinal: Registro[] | null = null;
-    let errorFinal: unknown = null;
-
-    const intentos = [
-      supabase.from(TABLA_SUBTEMAS).select("*").eq("tema_id", idTema),
-      supabase.from(TABLA_SUBTEMAS).select("*").eq("unidad_id", idTema),
-      supabase.from(TABLA_SUBTEMAS).select("*").eq("id_tema", idTema),
-      supabase.from(TABLA_SUBTEMAS).select("*").eq("id_unidad", idTema),
-      supabase.from(TABLA_SUBTEMAS).select("*").eq("tema", idTema),
-      supabase.from(TABLA_SUBTEMAS).select("*").eq("unidad", idTema),
-    ];
-
-    for (const intento of intentos) {
-      const { data, error } = await intento;
-
-      if (!error) {
-        dataFinal = data ?? [];
-        errorFinal = null;
-        break;
-      }
-
-      errorFinal = error;
-    }
-
-    if (errorFinal) {
-      console.error("Error cargando subtemas:", errorFinal);
-      alert("No se pudieron cargar los subtemas.");
-      setCargando(false);
-      return;
-    }
-
-    setSubtemas(ordenarLista(dataFinal ?? []));
-    setCargando(false);
-  }
-
-  async function cargarContenidos(idSubtema: string) {
-    setCargando(true);
-
-    const { data, error } = await supabase
+    const { data, error: fetchError } = await supabase
       .from(TABLA_CONTENIDO)
       .select("*")
-      .eq("subtema_id", idSubtema);
+      .eq("subtema_id", String(idSubtema))
+      .order("orden", { ascending: true });
 
-    if (error) {
-      console.error("Error cargando contenidos:", error);
-      alert("No se pudieron cargar los contenidos del subtema.");
+    if (fetchError) {
+      setError("No se pudo cargar el contenido del subtema.");
+      console.error(fetchError);
       setCargando(false);
       return;
     }
 
-    const listaOrdenada = ordenarLista(data ?? []);
-    setContenidos(listaOrdenada);
+    const bloques = ordenarBloques((data ?? []) as BloqueContenido[]);
 
-    if (!editandoId) {
-      const siguienteOrden =
-        listaOrdenada.length > 0
-          ? Math.max(...listaOrdenada.map((item) => Number(item.orden ?? 0))) + 1
-          : 1;
+    if (bloques.length > 0) {
+      setBloquePrincipalId(bloques[0].id);
 
-      setOrden(String(siguienteOrden));
+      const html = convertirBloquesAntiguosAHtml(bloques);
+
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.innerHTML = html;
+        }
+      }, 0);
+    } else {
+      setBloquePrincipalId(null);
+
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.innerHTML = "";
+        }
+      }, 0);
     }
 
     setCargando(false);
-  }
-
-  function limpiarFormulario() {
-    setEditandoId(null);
-    setContenidoHtml("");
-    setVideoUrl("");
-    setImagenUrl("");
-    setArchivoUrl("");
-    setOrden("1");
-
-    if (editorRef.current) {
-      editorRef.current.innerHTML = "";
-    }
-  }
-
-  function obtenerTextoBloque(bloque: Registro) {
-    return String(
-      bloque.contenido ??
-        bloque.texto ??
-        bloque.texto_html ??
-        bloque.contenido_html ??
-        ""
-    );
-  }
-
-  function obtenerArchivoBloque(bloque: Registro) {
-    return String(bloque.archivo_url ?? bloque.material_url ?? bloque.documento_url ?? "");
-  }
-
-  function obtenerImagenBloque(bloque: Registro) {
-    return String(bloque.imagen_url ?? bloque.image_url ?? "");
-  }
-
-  function obtenerVideoBloque(bloque: Registro) {
-    return String(bloque.video_url ?? bloque.url_video ?? "");
   }
 
   function ejecutarComando(comando: string, valor?: string) {
-    if (!editorRef.current) return;
-
-    editorRef.current.focus();
+    editorRef.current?.focus();
     document.execCommand(comando, false, valor);
-
-    setContenidoHtml(editorRef.current.innerHTML);
   }
 
-  function cambiarTamano(valor: string) {
-    const mapa: Record<string, string> = {
-      "14": "2",
-      "16": "3",
-      "20": "4",
-      "24": "5",
-      "32": "6",
-      "40": "7",
-    };
-
-    ejecutarComando("fontSize", mapa[valor] ?? "3");
+  function insertarHtml(html: string) {
+    editorRef.current?.focus();
+    document.execCommand("insertHTML", false, html);
   }
 
-  function agregarEnlace() {
-    const url = prompt("Pega el enlace:");
-
-    if (!url) return;
-
-    ejecutarComando("createLink", url);
+  function insertarSeparador() {
+    insertarHtml(
+      `<hr style="border:0;border-top:1px solid #334155;margin:24px 0;" />`
+    );
   }
 
-  function limpiarFormato() {
-    ejecutarComando("removeFormat");
-    ejecutarComando("formatBlock", "p");
-  }
-
-  function obtenerYoutubeId(url: string) {
-    if (!url) return "";
-
-    const limpio = url.trim();
-
-    if (/^[a-zA-Z0-9_-]{11}$/.test(limpio)) {
-      return limpio;
-    }
-
-    try {
-      const parsed = new URL(limpio);
-
-      if (parsed.hostname.includes("youtu.be")) {
-        return parsed.pathname.replace("/", "").split("?")[0];
-      }
-
-      if (parsed.hostname.includes("youtube.com")) {
-        const idNormal = parsed.searchParams.get("v");
-
-        if (idNormal) return idNormal;
-
-        const partes = parsed.pathname.split("/").filter(Boolean);
-        const embedIndex = partes.indexOf("embed");
-        const shortsIndex = partes.indexOf("shorts");
-
-        if (embedIndex !== -1 && partes[embedIndex + 1]) {
-          return partes[embedIndex + 1];
-        }
-
-        if (shortsIndex !== -1 && partes[shortsIndex + 1]) {
-          return partes[shortsIndex + 1];
-        }
-      }
-
-      return "";
-    } catch {
-      return "";
-    }
-  }
-
-  function crearPayloads(textoActual: string) {
-    const textoFinal = textoActual.trim();
-    const videoFinal = videoUrl.trim() || null;
-    const imagenFinal = imagenUrl.trim() || null;
-    const archivoFinal = archivoUrl.trim() || null;
-    const ordenFinal = Number(orden) || 1;
-
-    const baseConTitulo = {
-      subtema_id: subtemaId,
-      titulo: "",
-      orden: ordenFinal,
-    };
-
-    const baseSinTitulo = {
-      subtema_id: subtemaId,
-      orden: ordenFinal,
-    };
-
-    return [
-      {
-        ...baseConTitulo,
-        tipo: "mixto",
-        contenido: textoFinal,
-        video_url: videoFinal,
-        imagen_url: imagenFinal,
-        archivo_url: archivoFinal,
-      },
-      {
-        ...baseSinTitulo,
-        tipo: "mixto",
-        contenido: textoFinal,
-        video_url: videoFinal,
-        imagen_url: imagenFinal,
-        archivo_url: archivoFinal,
-      },
-      {
-        ...baseConTitulo,
-        contenido: textoFinal,
-        video_url: videoFinal,
-        imagen_url: imagenFinal,
-        archivo_url: archivoFinal,
-      },
-      {
-        ...baseSinTitulo,
-        contenido: textoFinal,
-        video_url: videoFinal,
-        imagen_url: imagenFinal,
-        archivo_url: archivoFinal,
-      },
-      {
-        ...baseConTitulo,
-        texto: textoFinal,
-        video_url: videoFinal,
-        imagen_url: imagenFinal,
-        material_url: archivoFinal,
-      },
-      {
-        ...baseSinTitulo,
-        texto: textoFinal,
-        video_url: videoFinal,
-        imagen_url: imagenFinal,
-        material_url: archivoFinal,
-      },
-    ];
-  }
-
-  async function guardarConFallback(payloads: Record<string, unknown>[]) {
-    let ultimoError: unknown = null;
-
-    for (const payload of payloads) {
-      const respuesta = editandoId
-        ? await supabase.from(TABLA_CONTENIDO).update(payload).eq("id", editandoId)
-        : await supabase.from(TABLA_CONTENIDO).insert(payload);
-
-      if (!respuesta.error) {
-        return null;
-      }
-
-      ultimoError = respuesta.error;
-    }
-
-    return ultimoError;
+  function insertarCajaImportante() {
+    insertarHtml(`
+      <div style="border:1px solid #2563eb;background:#0f172a;border-radius:16px;padding:18px;margin:18px 0;">
+        <p style="margin:0;font-weight:700;color:#93c5fd;">Nota importante</p>
+        <p style="margin:8px 0 0 0;">Escribe aquí la información destacada.</p>
+      </div>
+    `);
   }
 
   async function guardarContenido() {
     if (!subtemaId) {
-      alert("Primero selecciona una materia, tema/unidad y subtema.");
+      setError("No hay un subtema seleccionado.");
       return;
     }
 
-    const textoActual = editorRef.current?.innerHTML ?? "";
-    setContenidoHtml(textoActual);
+    const html = normalizarVideosGuardados(editorRef.current?.innerHTML || "");
 
-    const hayContenido =
-      textoActual.trim() ||
-      videoUrl.trim() ||
-      imagenUrl.trim() ||
-      archivoUrl.trim();
+    if (editorRef.current) {
+      editorRef.current.innerHTML = html;
+    }
 
-    if (!hayContenido) {
-      alert("Agrega texto, video, imagen o material antes de guardar.");
+    if (contenidoHtmlVacio(html)) {
+      setError("Escribe o agrega contenido antes de guardar.");
+      setMensaje("");
       return;
     }
 
     setGuardando(true);
+    setError("");
+    setMensaje("");
 
-    const payloads = crearPayloads(textoActual);
-    const error = await guardarConFallback(payloads);
+    const payload = {
+      subtema_id: String(subtemaId),
+      tipo: "texto",
+      titulo: "Contenido completo del subtema",
+      contenido: html,
+      url: null,
+      alineacion: "izquierda",
+      tamano_texto: "normal",
+      orden: 1,
+    };
 
-    if (error) {
-      console.error("Error guardando contenido:", error);
-      alert("No se pudo guardar el contenido. Revisa la consola para ver el detalle.");
+    try {
+      let idPrincipal = bloquePrincipalId;
+
+      if (idPrincipal) {
+        const { error: updateError } = await supabase
+          .from(TABLA_CONTENIDO)
+          .update(payload)
+          .eq("id", idPrincipal);
+
+        if (updateError) {
+          console.error("Error actualizando contenido:", {
+            message: updateError.message,
+            code: updateError.code,
+            details: updateError.details,
+            hint: updateError.hint,
+          });
+
+          setError(
+            updateError.message ||
+              "No se pudo actualizar el contenido. Revisa permisos de Supabase."
+          );
+
+          setGuardando(false);
+          return;
+        }
+      } else {
+        const { data, error: insertError } = await supabase
+          .from(TABLA_CONTENIDO)
+          .insert(payload)
+          .select("id")
+          .single();
+
+        if (insertError) {
+          console.error("Error insertando contenido:", {
+            message: insertError.message,
+            code: insertError.code,
+            details: insertError.details,
+            hint: insertError.hint,
+          });
+
+          setError(
+            insertError.message ||
+              "No se pudo insertar el contenido. Revisa permisos de Supabase."
+          );
+
+          setGuardando(false);
+          return;
+        }
+
+        idPrincipal = data.id;
+        setBloquePrincipalId(data.id);
+      }
+
+      if (idPrincipal) {
+        const { error: deleteExtrasError } = await supabase
+          .from(TABLA_CONTENIDO)
+          .delete()
+          .eq("subtema_id", String(subtemaId))
+          .neq("id", idPrincipal);
+
+        if (deleteExtrasError) {
+          console.error("Error eliminando bloques extra:", {
+            message: deleteExtrasError.message,
+            code: deleteExtrasError.code,
+            details: deleteExtrasError.details,
+            hint: deleteExtrasError.hint,
+          });
+        }
+      }
+
+      setMensaje("Contenido guardado correctamente.");
+    } catch (err) {
+      console.error("Error inesperado guardando contenido:", err);
+      setError("Ocurrió un error inesperado al guardar el contenido.");
+    } finally {
       setGuardando(false);
+    }
+  }
+
+  async function handlePaste(e: ClipboardEvent<HTMLDivElement>) {
+    const archivos = Array.from(e.clipboardData.files || []);
+
+    if (archivos.length > 0) {
+      e.preventDefault();
+
+      for (const archivo of archivos) {
+        await subirArchivoEInsertar(archivo);
+      }
+
       return;
     }
 
-    await cargarContenidos(subtemaId);
-    limpiarFormulario();
-    setGuardando(false);
+    const texto = e.clipboardData.getData("text/plain")?.trim();
+
+    if (texto && esUrl(texto)) {
+      e.preventDefault();
+      insertarRecursoDesdeUrl(texto);
+    }
   }
 
-  function editarBloque(bloque: Registro) {
-    setEditandoId(bloque.id);
+  async function handleSeleccionArchivo(e: ChangeEvent<HTMLInputElement>) {
+    const archivos = Array.from(e.target.files || []);
 
-    const texto = obtenerTextoBloque(bloque);
-
-    setContenidoHtml(texto);
-    setVideoUrl(obtenerVideoBloque(bloque));
-    setImagenUrl(obtenerImagenBloque(bloque));
-    setArchivoUrl(obtenerArchivoBloque(bloque));
-    setOrden(String(bloque.orden ?? 1));
-
-    if (editorRef.current) {
-      editorRef.current.innerHTML = texto;
+    for (const archivo of archivos) {
+      await subirArchivoEInsertar(archivo);
     }
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    e.target.value = "";
   }
 
-  async function eliminarBloque(id: string | number) {
-    const confirmar = confirm("¿Seguro que quieres eliminar este bloque de contenido?");
-
-    if (!confirmar) return;
-
-    const { error } = await supabase.from(TABLA_CONTENIDO).delete().eq("id", id);
-
-    if (error) {
-      console.error("Error eliminando contenido:", error);
-      alert("No se pudo eliminar el contenido.");
+  async function subirArchivoEInsertar(archivo: File) {
+    if (!subtemaId) {
+      setError("Selecciona un subtema antes de subir archivos.");
       return;
     }
 
-    if (subtemaId) {
-      await cargarContenidos(subtemaId);
+    setSubiendoArchivo(true);
+    setError("");
+    setMensaje("");
+
+    const nombreSeguro = limpiarNombreArchivo(archivo.name);
+    const ruta = `${subtemaId}/${Date.now()}-${nombreSeguro}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_CONTENIDO)
+      .upload(ruta, archivo, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: archivo.type || undefined,
+      });
+
+    if (uploadError) {
+      setError("No se pudo subir el archivo.");
+      console.error(uploadError);
+      setSubiendoArchivo(false);
+      return;
     }
+
+    const { data } = supabase.storage
+      .from(BUCKET_CONTENIDO)
+      .getPublicUrl(ruta);
+
+    const publicUrl = data.publicUrl;
+
+    if (archivo.type.startsWith("image/")) {
+      insertarImagen(publicUrl, archivo.name);
+    } else if (archivo.type.startsWith("video/")) {
+      insertarVideoArchivo(publicUrl);
+    } else {
+      insertarArchivoDescargable(publicUrl, archivo.name);
+    }
+
+    setMensaje("Archivo agregado al editor.");
+    setSubiendoArchivo(false);
   }
 
-  function renderVideo(url: string) {
-    if (!url) return null;
+  function insertarRecursoDesdeUrl(url: string) {
+    if (esUrlVideo(url)) {
+      const embed = convertirVideoAEmbed(url);
 
-    const youtubeId = obtenerYoutubeId(url);
-
-    if (youtubeId) {
-      const src = `https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1${
-        origen ? `&origin=${encodeURIComponent(origen)}` : ""
-      }`;
-
-      return (
-        <iframe
-          className="aspect-video w-full rounded-2xl border border-slate-700 bg-black"
-          src={src}
-          title="Video de YouTube"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          referrerPolicy="strict-origin-when-cross-origin"
-        />
-      );
+      if (embed) {
+        insertarVideoEmbed(embed, url);
+        setRecursoUrl("");
+        return;
+      }
     }
 
-    return (
-      <video
-        className="w-full rounded-2xl border border-slate-700 bg-black"
-        src={url}
-        controls
-      />
+    if (esUrlImagen(url)) {
+      insertarImagen(url, "Imagen");
+      setRecursoUrl("");
+      return;
+    }
+
+    if (esUrlPdf(url)) {
+      insertarArchivoDescargable(url, "Documento PDF");
+      setRecursoUrl("");
+      return;
+    }
+
+    insertarHtml(
+      `<a href="${escaparAtributo(
+        url
+      )}" target="_blank" rel="noreferrer" style="color:#2563eb;text-decoration:underline;">${escaparHtml(
+        url
+      )}</a>`
     );
+    setRecursoUrl("");
   }
+
+  function insertarUrlManual() {
+    const url = recursoUrl.trim();
+
+    if (!url) {
+      setError("Pega un enlace antes de insertar.");
+      return;
+    }
+
+    if (!esUrl(url)) {
+      setError("El enlace no parece válido.");
+      return;
+    }
+
+    setError("");
+    insertarRecursoDesdeUrl(url);
+  }
+
+  function insertarImagen(src: string, alt: string) {
+    insertarHtml(`
+      <figure style="margin:22px 0;">
+        <img src="${escaparAtributo(src)}" alt="${escaparAtributo(
+      alt
+    )}" style="display:block;max-width:100%;height:auto;border-radius:16px;border:1px solid #334155;margin:auto;" />
+        <figcaption style="margin-top:8px;text-align:center;color:#64748b;font-size:14px;">${escaparHtml(
+          alt
+        )}</figcaption>
+      </figure>
+    `);
+  }
+
+  function insertarVideoEmbed(src: string, originalUrl: string) {
+    insertarHtml(construirVideoIncrustadoHtml(src, originalUrl));
+  }
+
+  function insertarVideoArchivo(src: string) {
+    insertarHtml(`
+      <video controls style="display:block;width:100%;max-height:520px;border-radius:16px;border:1px solid #334155;margin:22px 0;background:#020617;">
+        <source src="${escaparAtributo(src)}" />
+        Tu navegador no puede reproducir este video.
+      </video>
+    `);
+  }
+
+  function insertarArchivoDescargable(src: string, nombre: string) {
+    insertarHtml(`
+      <div style="border:1px solid #334155;background:#0f172a;border-radius:16px;padding:18px;margin:18px 0;">
+        <p style="margin:0 0 10px 0;font-weight:700;color:#e2e8f0;">Archivo descargable</p>
+        <a href="${escaparAtributo(
+          src
+        )}" target="_blank" rel="noreferrer" download style="display:inline-block;border:1px solid #38bdf8;border-radius:12px;padding:10px 14px;color:#7dd3fc;text-decoration:none;font-weight:700;">
+          Descargar: ${escaparHtml(nombre)}
+        </a>
+      </div>
+    `);
+  }
+
+  const materiaSeleccionada = materias.find(
+    (item) => String(item.id) === String(materiaId)
+  );
+  const temaSeleccionado = temas.find(
+    (item) => String(item.id) === String(temaId)
+  );
+  const subtemaSeleccionado = subtemas.find(
+    (item) => String(item.id) === String(subtemaId)
+  );
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Contenido de subtemas</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Selecciona una materia, tema/unidad y subtema. El subtema será el título principal.
+        <header className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
+          <p className="text-sm uppercase tracking-[0.35em] text-blue-300">
+            Admin
           </p>
-        </div>
 
-        <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-            <h2 className="mb-5 text-xl font-semibold">
-              {editandoId ? "Editar contenido" : "Agregar contenido"}
+          <h1 className="mt-3 text-4xl font-bold">Contenido de subtemas</h1>
+
+          <p className="mt-3 max-w-4xl text-slate-400">
+            Edita el contenido del subtema como si fuera una publicación:
+            escribe texto, da formato, pega imágenes con Ctrl + V, inserta
+            videos por enlace y agrega archivos descargables.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/admin?seccion=subtemas"
+              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 hover:bg-slate-800"
+            >
+              Volver a subtemas
+            </Link>
+
+            {subtemaId && (
+              <Link
+                href={materiaId ? `/materias/${materiaId}` : "/materias"}
+                target="_blank"
+                className="rounded-xl border border-blue-700 px-5 py-3 font-semibold text-blue-300 hover:bg-blue-950"
+              >
+                Vista alumno
+              </Link>
+            )}
+          </div>
+        </header>
+
+        {mensaje && (
+          <div className="mb-6 rounded-xl border border-green-500 bg-green-950 p-4 text-sm text-green-200">
+            {mensaje}
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-500 bg-red-950 p-4 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
+        {cargando && (
+          <div className="mb-6 rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
+            Cargando...
+          </div>
+        )}
+
+        {subtemaSeleccionado ? (
+          <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+            <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">
+              Subtema seleccionado
+            </p>
+
+            <h2 className="mt-3 text-3xl font-bold">
+              {obtenerTitulo(subtemaSeleccionado)}
             </h2>
 
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-300">
-                  Materia
-                </label>
-                <select
-                  value={materiaId}
-                  onChange={(e) => setMateriaId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-                >
-                  <option value="">Selecciona una materia</option>
-                  {materias.map((materia) => (
-                    <option key={materia.id} value={materia.id}>
-                      {obtenerTitulo(materia)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <p className="mt-2 text-sm text-slate-400">
+              Materia: {obtenerTitulo(materiaSeleccionada)} · Tema:{" "}
+              {obtenerTitulo(temaSeleccionado)}
+            </p>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-300">
-                  Tema / unidad
-                </label>
-                <select
-                  value={temaId}
-                  onChange={(e) => setTemaId(e.target.value)}
-                  disabled={!materiaId}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
-                >
-                  <option value="">Selecciona un tema/unidad</option>
-                  {temas.map((tema) => (
-                    <option key={tema.id} value={tema.id}>
-                      {obtenerTitulo(tema)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-300">
-                  Subtema
-                </label>
-                <select
-                  value={subtemaId}
-                  onChange={(e) => setSubtemaId(e.target.value)}
-                  disabled={!temaId}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
-                >
-                  <option value="">Selecciona un subtema</option>
-                  {subtemas.map((subtema) => (
-                    <option key={subtema.id} value={subtema.id}>
-                      {obtenerTitulo(subtema)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-300">
-                  Orden
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={orden}
-                  onChange={(e) => setOrden(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                <h3 className="mb-3 font-semibold">Texto con formato</h3>
-
-                <div className="mb-3 flex flex-wrap gap-2">
-                  <select
-                    onChange={(e) => cambiarTamano(e.target.value)}
-                    defaultValue="16"
-                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-                  >
-                    <option value="14">14</option>
-                    <option value="16">16</option>
-                    <option value="20">20</option>
-                    <option value="24">24</option>
-                    <option value="32">32</option>
-                    <option value="40">40</option>
-                  </select>
-
-                  <button type="button" onClick={() => ejecutarComando("bold")} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Negrita
-                  </button>
-
-                  <button type="button" onClick={() => ejecutarComando("italic")} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Cursiva
-                  </button>
-
-                  <button type="button" onClick={() => ejecutarComando("underline")} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Subrayar
-                  </button>
-
-                  <button type="button" onClick={() => ejecutarComando("justifyLeft")} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Izq.
-                  </button>
-
-                  <button type="button" onClick={() => ejecutarComando("justifyCenter")} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Centrar
-                  </button>
-
-                  <button type="button" onClick={() => ejecutarComando("justifyRight")} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Der.
-                  </button>
-
-                  <button type="button" onClick={() => ejecutarComando("formatBlock", "h3")} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Subtítulo
-                  </button>
-
-                  <button type="button" onClick={() => ejecutarComando("insertUnorderedList")} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Lista
-                  </button>
-
-                  <button type="button" onClick={agregarEnlace} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Enlace
-                  </button>
-
-                  <button type="button" onClick={limpiarFormato} className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800">
-                    Limpiar
-                  </button>
-                </div>
-
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={(e) => setContenidoHtml(e.currentTarget.innerHTML)}
-                  className="min-h-[180px] rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-blue-500"
-                />
-
-                <p className="mt-3 text-xs text-slate-400">
-                  Puedes dejar este apartado vacío si solo quieres agregar imagen, video o material.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                <h3 className="mb-3 font-semibold">Video</h3>
-                <input
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="Pega aquí el link de YouTube o video"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                <h3 className="mb-3 font-semibold">Imagen</h3>
-                <input
-                  value={imagenUrl}
-                  onChange={(e) => setImagenUrl(e.target.value)}
-                  placeholder="Pega aquí el link de la imagen"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                <h3 className="mb-3 font-semibold">Material descargable</h3>
-                <input
-                  value={archivoUrl}
-                  onChange={(e) => setArchivoUrl(e.target.value)}
-                  placeholder="Pega aquí el link del PDF, archivo o material"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={guardarContenido}
-                  disabled={guardando || !subtemaId}
-                  className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {guardando
-                    ? "Guardando..."
-                    : editandoId
-                    ? "Guardar cambios"
-                    : "Agregar contenido"}
-                </button>
-
-                {editandoId && (
-                  <button
-                    type="button"
-                    onClick={limpiarFormulario}
-                    className="rounded-xl border border-slate-700 px-4 py-3 font-semibold text-white hover:bg-slate-800"
-                  >
-                    Cancelar
-                  </button>
-                )}
-              </div>
-            </div>
+            {obtenerDescripcion(subtemaSeleccionado) && (
+              <p className="mt-4 text-slate-300">
+                {obtenerDescripcion(subtemaSeleccionado)}
+              </p>
+            )}
           </section>
+        ) : (
+          <section className="mb-8 rounded-3xl border border-yellow-600 bg-yellow-950/30 p-6 shadow-xl">
+            <h2 className="text-2xl font-bold text-yellow-200">
+              No hay subtema seleccionado
+            </h2>
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-            <div className="mb-6">
-              <p className="text-sm text-slate-400">Vista previa del subtema</p>
-              <h2 className="mt-1 text-3xl font-bold">
-                {subtemaSeleccionado
-                  ? obtenerTitulo(subtemaSeleccionado)
-                  : "Selecciona un subtema"}
-              </h2>
-            </div>
+            <p className="mt-3 text-yellow-100">
+              Regresa a la sección de subtemas y usa el botón “Administrar
+              contenido” del subtema que quieras editar.
+            </p>
 
-            {cargando && (
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-300">
-                Cargando...
-              </div>
-            )}
-
-            {!cargando && !subtemaId && (
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                Selecciona una materia, tema/unidad y subtema para ver o agregar contenido.
-              </div>
-            )}
-
-            {!cargando && subtemaId && contenidos.length === 0 && (
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                Este subtema todavía no tiene contenido.
-              </div>
-            )}
-
-            <div className="space-y-5">
-              {contenidos.map((bloque) => {
-                const texto = obtenerTextoBloque(bloque);
-                const video = obtenerVideoBloque(bloque);
-                const imagen = obtenerImagenBloque(bloque);
-                const archivo = obtenerArchivoBloque(bloque);
-
-                return (
-                  <article
-                    key={bloque.id}
-                    className="rounded-3xl border border-slate-800 bg-slate-950 p-5"
-                  >
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <p className="text-sm text-slate-500">
-                        Orden: {bloque.orden ?? "Sin orden"}
-                      </p>
-
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => editarBloque(bloque)}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
-                        >
-                          Editar
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => eliminarBloque(bloque.id)}
-                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </div>
-
-                    {texto && (
-                      <div
-                        className="mb-5 rounded-2xl bg-slate-900 p-5 leading-relaxed text-white"
-                        dangerouslySetInnerHTML={{ __html: texto }}
-                      />
-                    )}
-
-                    {video && (
-                      <div className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                        <p className="mb-3 text-sm font-semibold text-blue-300">
-                          Video
-                        </p>
-                        {renderVideo(video)}
-                      </div>
-                    )}
-
-                    {imagen && (
-                      <div className="mb-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                        <p className="mb-3 text-sm font-semibold text-blue-300">
-                          Imagen
-                        </p>
-                        <img
-                          src={imagen}
-                          alt="Imagen del contenido"
-                          className="max-h-[500px] w-full rounded-2xl object-contain"
-                        />
-                      </div>
-                    )}
-
-                    {archivo && (
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                        <p className="mb-3 text-sm font-semibold text-blue-300">
-                          Material
-                        </p>
-                        <a
-                          href={archivo}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex rounded-xl bg-slate-800 px-4 py-3 font-semibold text-white hover:bg-slate-700"
-                        >
-                          Abrir material
-                        </a>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
+            <Link
+              href="/admin?seccion=subtemas"
+              className="mt-5 inline-flex rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-slate-950 hover:bg-yellow-400"
+            >
+              Volver a subtemas
+            </Link>
           </section>
-        </div>
+        )}
+
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+          <div className="flex flex-col gap-4 border-b border-slate-800 pb-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Editor de contenido</h2>
+              <p className="mt-2 text-sm text-slate-400">
+                Escribe, pega imágenes con Ctrl + V, pega enlaces de YouTube,
+                Vimeo, PDF o imágenes, o sube archivos.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={guardarContenido}
+              disabled={guardando || !subtemaId}
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+            >
+              {guardando ? "Guardando..." : "Guardar contenido"}
+            </button>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => ejecutarComando("bold")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold hover:bg-slate-800"
+            >
+              Negrita
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("italic")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm italic hover:bg-slate-800"
+            >
+              Cursiva
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("underline")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm underline hover:bg-slate-800"
+            >
+              Subrayado
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("formatBlock", "h2")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Título
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("formatBlock", "p")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Texto normal
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("fontSize", "3")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Tamaño normal
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("fontSize", "5")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Texto grande
+            </button>
+
+            <select
+              onChange={(e) => ejecutarComando("fontName", e.target.value)}
+              defaultValue=""
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+            >
+              <option value="" disabled>
+                Tipo de letra
+              </option>
+              <option value="Arial">Arial</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Verdana">Verdana</option>
+              <option value="Courier New">Courier New</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("justifyLeft")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Izquierda
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("justifyCenter")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Centrar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("justifyRight")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Derecha
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("justifyFull")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Justificar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("insertUnorderedList")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Lista
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("insertOrderedList")}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Lista numérica
+            </button>
+
+            <button
+              type="button"
+              onClick={insertarSeparador}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+            >
+              Separador
+            </button>
+
+            <button
+              type="button"
+              onClick={insertarCajaImportante}
+              className="rounded-lg border border-blue-700 px-3 py-2 text-sm text-blue-300 hover:bg-blue-950"
+            >
+              Caja importante
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+            <input
+              value={recursoUrl}
+              onChange={(e) => setRecursoUrl(e.target.value)}
+              disabled={!subtemaId}
+              placeholder="Pega aquí un enlace de YouTube, Vimeo, imagen, PDF o cualquier recurso..."
+              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
+            />
+
+            <button
+              type="button"
+              onClick={insertarUrlManual}
+              disabled={!subtemaId}
+              className="rounded-xl border border-cyan-700 px-5 py-3 font-semibold text-cyan-300 hover:bg-cyan-950 disabled:opacity-50"
+            >
+              Insertar enlace/video
+            </button>
+
+            <label className="cursor-pointer rounded-xl border border-green-700 px-5 py-3 text-center font-semibold text-green-300 hover:bg-green-950">
+              {subiendoArchivo ? "Subiendo..." : "Subir archivo"}
+              <input
+                type="file"
+                multiple
+                onChange={handleSeleccionArchivo}
+                disabled={!subtemaId || subiendoArchivo}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          <div
+            ref={editorRef}
+            contentEditable={Boolean(subtemaId)}
+            suppressContentEditableWarning
+            onPaste={handlePaste}
+            className="prose-editor mt-6 min-h-[620px] rounded-2xl border border-slate-700 bg-white p-6 text-slate-950 outline-none focus:border-blue-500"
+          />
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={guardarContenido}
+              disabled={guardando || !subtemaId}
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+            >
+              {guardando ? "Guardando..." : "Guardar contenido"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("undo")}
+              disabled={!subtemaId}
+              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              Deshacer
+            </button>
+
+            <button
+              type="button"
+              onClick={() => ejecutarComando("redo")}
+              disabled={!subtemaId}
+              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              Rehacer
+            </button>
+          </div>
+        </section>
       </div>
+
+      <style jsx global>{`
+        .prose-editor {
+          line-height: 1.7;
+          font-size: 16px;
+        }
+
+        .prose-editor:empty:before {
+          content: "Escribe aquí el contenido del subtema. También puedes pegar una imagen con Ctrl + V o pegar un enlace de video/PDF...";
+          color: #64748b;
+        }
+
+        .prose-editor h2 {
+          font-size: 2rem;
+          font-weight: 800;
+          margin: 1rem 0;
+        }
+
+        .prose-editor h3 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 1rem 0;
+        }
+
+        .prose-editor p {
+          margin: 0.75rem 0;
+        }
+
+        .prose-editor ul,
+        .prose-editor ol {
+          padding-left: 1.5rem;
+          margin: 1rem 0;
+        }
+
+        .prose-editor img {
+          max-width: 100%;
+          height: auto;
+        }
+
+        .prose-editor iframe {
+          max-width: 100%;
+        }
+
+        .prose-editor a {
+          color: #2563eb;
+          text-decoration: underline;
+        }
+      `}</style>
     </main>
   );
+}
+
+function construirVideoIncrustadoHtml(src: string, originalUrl: string) {
+  return `
+    <div
+      data-tipo="video"
+      data-video-url="${escaparAtributo(originalUrl)}"
+      data-video-embed="${escaparAtributo(src)}"
+      style="margin:22px 0;"
+    >
+      <div style="position:relative;width:100%;padding-top:56.25%;border:1px solid #334155;border-radius:16px;overflow:hidden;background:#020617;">
+        <iframe
+          src="${escaparAtributo(src)}"
+          title="Video del subtema"
+          style="position:absolute;inset:0;width:100%;height:100%;border:0;"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
+  `;
+}
+
+function normalizarVideosGuardados(html: string) {
+  if (typeof document === "undefined") return html;
+
+  const contenedor = document.createElement("div");
+  contenedor.innerHTML = html;
+
+  const tarjetasVideo = contenedor.querySelectorAll('[data-tipo="video"]');
+
+  tarjetasVideo.forEach((tarjeta) => {
+    const embed =
+      tarjeta.getAttribute("data-video-embed") ||
+      convertirVideoAEmbed(tarjeta.getAttribute("data-video-url") || "");
+
+    const originalUrl = tarjeta.getAttribute("data-video-url") || embed;
+
+    if (!embed) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = construirVideoIncrustadoHtml(embed, originalUrl);
+
+    const nuevoVideo = wrapper.firstElementChild;
+
+    if (nuevoVideo) {
+      tarjeta.replaceWith(nuevoVideo);
+    }
+  });
+
+  return contenedor.innerHTML;
+}
+
+function contenidoHtmlVacio(html: string) {
+  const limpio = html
+    .replace(/<img\b[^>]*>/gi, "")
+    .replace(/<iframe\b[^>]*>.*?<\/iframe>/gi, "")
+    .replace(/<video\b[^>]*>.*?<\/video>/gi, "")
+    .replace(/<a\b[^>]*>.*?<\/a>/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+
+  const tieneMedia =
+    /<img\b/i.test(html) ||
+    /<iframe\b/i.test(html) ||
+    /<video\b/i.test(html) ||
+    /<a\b/i.test(html);
+
+  return !limpio && !tieneMedia;
+}
+
+function convertirBloquesAntiguosAHtml(bloques: BloqueContenido[]) {
+  if (bloques.length === 0) return "";
+
+  if (bloques.length === 1 && bloques[0].tipo === "texto") {
+    return normalizarVideosGuardados(bloques[0].contenido || "");
+  }
+
+  return bloques
+    .map((bloque) => {
+      if (bloque.tipo === "texto") {
+        return normalizarVideosGuardados(`<div>${bloque.contenido || ""}</div>`);
+      }
+
+      if (bloque.tipo === "imagen" && bloque.url) {
+        return `
+          <figure style="margin:22px 0;">
+            <img src="${escaparAtributo(
+              bloque.url
+            )}" alt="${escaparAtributo(
+          bloque.titulo || "Imagen"
+        )}" style="display:block;max-width:100%;height:auto;border-radius:16px;border:1px solid #334155;margin:auto;" />
+          </figure>
+        `;
+      }
+
+      if (bloque.tipo === "video" && bloque.url) {
+        const embed = convertirVideoAEmbed(bloque.url);
+
+        if (embed) {
+          return construirVideoIncrustadoHtml(embed, bloque.url);
+        }
+
+        return "";
+      }
+
+      if (bloque.tipo === "pdf" && bloque.url) {
+        return `
+          <div style="border:1px solid #334155;background:#0f172a;border-radius:16px;padding:18px;margin:18px 0;">
+            <p style="margin:0 0 10px 0;font-weight:700;color:#e2e8f0;">Archivo descargable</p>
+            <a href="${escaparAtributo(
+              bloque.url
+            )}" target="_blank" rel="noreferrer" download style="display:inline-block;border:1px solid #38bdf8;border-radius:12px;padding:10px 14px;color:#7dd3fc;text-decoration:none;font-weight:700;">
+              Descargar: ${escaparHtml(bloque.titulo || "PDF")}
+            </a>
+          </div>
+        `;
+      }
+
+      return "";
+    })
+    .join("");
+}
+
+function limpiarNombreArchivo(nombre: string) {
+  return nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
+
+function esUrl(valor: string) {
+  try {
+    new URL(valor);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function esUrlImagen(url: string) {
+  return /\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(url);
+}
+
+function esUrlPdf(url: string) {
+  return /\.pdf(\?.*)?$/i.test(url);
+}
+
+function esUrlVideo(url: string) {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname.includes("youtube.com") ||
+      parsed.hostname.includes("youtu.be") ||
+      parsed.hostname.includes("vimeo.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function convertirVideoAEmbed(url: string) {
+  if (!url.trim()) return "";
+
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.hostname.includes("youtube.com")) {
+      const videoId = parsed.searchParams.get("v");
+      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+    }
+
+    if (parsed.hostname.includes("youtu.be")) {
+      const videoId = parsed.pathname.replace("/", "");
+      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+    }
+
+    if (parsed.hostname.includes("vimeo.com")) {
+      const videoId = parsed.pathname.replace("/", "");
+      if (videoId) return `https://player.vimeo.com/video/${videoId}`;
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+function escaparHtml(texto: string) {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escaparAtributo(texto: string) {
+  return escaparHtml(texto).replace(/"/g, "&quot;");
 }

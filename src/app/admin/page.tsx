@@ -25,6 +25,7 @@ type Registro = {
 };
 
 type Seccion =
+  | "solicitudes"
   | "materias"
   | "temas"
   | "subtemas"
@@ -38,7 +39,7 @@ const TABLA_PARCIALES = "parciales";
 const TABLA_SIMULADORES = "simuladores";
 
 export default function AdminPage() {
-  const [seccion, setSeccion] = useState<Seccion>("materias");
+  const [seccion, setSeccion] = useState<Seccion>("solicitudes");
 
   const [materias, setMaterias] = useState<Registro[]>([]);
   const [temas, setTemas] = useState<Registro[]>([]);
@@ -51,43 +52,69 @@ export default function AdminPage() {
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
-  const [materiaEditandoId, setMateriaEditandoId] = useState<string | number | null>(null);
+  const [materiaEditandoId, setMateriaEditandoId] = useState<
+    string | number | null
+  >(null);
   const [materiaTitulo, setMateriaTitulo] = useState("");
   const [materiaDescripcion, setMateriaDescripcion] = useState("");
   const [materiaOrden, setMateriaOrden] = useState("1");
 
   const [temaMateriaId, setTemaMateriaId] = useState("");
-  const [temaEditandoId, setTemaEditandoId] = useState<string | number | null>(null);
+  const [temaEditandoId, setTemaEditandoId] = useState<string | number | null>(
+    null
+  );
   const [temaTitulo, setTemaTitulo] = useState("");
   const [temaDescripcion, setTemaDescripcion] = useState("");
   const [temaOrden, setTemaOrden] = useState("1");
 
   const [subtemaMateriaId, setSubtemaMateriaId] = useState("");
   const [subtemaTemaId, setSubtemaTemaId] = useState("");
-  const [subtemaEditandoId, setSubtemaEditandoId] = useState<string | number | null>(null);
+  const [subtemaEditandoId, setSubtemaEditandoId] = useState<
+    string | number | null
+  >(null);
   const [subtemaTitulo, setSubtemaTitulo] = useState("");
   const [subtemaDescripcion, setSubtemaDescripcion] = useState("");
   const [subtemaOrden, setSubtemaOrden] = useState("1");
 
   const [parcialMateriaId, setParcialMateriaId] = useState("");
   const [parcialTemaId, setParcialTemaId] = useState("");
-  const [parcialEditandoId, setParcialEditandoId] = useState<string | number | null>(null);
+  const [parcialEditandoId, setParcialEditandoId] = useState<
+    string | number | null
+  >(null);
   const [parcialTitulo, setParcialTitulo] = useState("");
   const [parcialDescripcion, setParcialDescripcion] = useState("");
   const [parcialOrden, setParcialOrden] = useState("1");
 
-  const [simuladorEditandoId, setSimuladorEditandoId] = useState<string | number | null>(null);
+  const [simuladorEditandoId, setSimuladorEditandoId] = useState<
+    string | number | null
+  >(null);
   const [simuladorTitulo, setSimuladorTitulo] = useState("");
   const [simuladorDescripcion, setSimuladorDescripcion] = useState("");
   const [simuladorOrden, setSimuladorOrden] = useState("1");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const seccionUrl = params.get("seccion");
+
+    if (
+      seccionUrl === "solicitudes" ||
+      seccionUrl === "materias" ||
+      seccionUrl === "temas" ||
+      seccionUrl === "subtemas" ||
+      seccionUrl === "parciales" ||
+      seccionUrl === "simuladores"
+    ) {
+      setSeccion(seccionUrl);
+    }
+
     cargarInicial();
   }, []);
 
   function obtenerTitulo(item: Registro | null | undefined) {
     if (!item) return "";
-    return String(item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`);
+    return String(
+      item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`
+    );
   }
 
   function obtenerDescripcion(item: Registro | null | undefined) {
@@ -592,7 +619,9 @@ export default function AdminPage() {
 
     if (error) {
       console.error("Error eliminando subtema:", error);
-      alert("No se pudo eliminar el subtema. Puede tener contenido relacionado.");
+      alert(
+        "No se pudo eliminar el subtema. Puede tener contenido relacionado."
+      );
       return;
     }
 
@@ -733,7 +762,10 @@ export default function AdminPage() {
 
     if (!confirmar) return;
 
-    const { error } = await supabase.from(TABLA_SIMULADORES).delete().eq("id", id);
+    const { error } = await supabase
+      .from(TABLA_SIMULADORES)
+      .delete()
+      .eq("id", id);
 
     if (error) {
       console.error("Error eliminando simulador:", error);
@@ -799,11 +831,14 @@ export default function AdminPage() {
           </h1>
 
           <p className="mt-3 max-w-3xl text-slate-400">
-            Edita materias, temas, subtemas, parciales y simuladores. También puedes modificar el orden, abrir vista previa y administrar preguntas.
+            Edita materias, temas, subtemas, parciales y simuladores. También
+            puedes modificar el orden, abrir vista previa y administrar
+            preguntas.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
             {[
+              ["solicitudes", "Solicitudes alumnos"],
               ["materias", "Materias"],
               ["temas", "Temas / unidades"],
               ["subtemas", "Subtemas"],
@@ -830,6 +865,75 @@ export default function AdminPage() {
           <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 text-slate-300">
             Cargando...
           </div>
+        )}
+
+        {seccion === "solicitudes" && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
+            <p className="text-sm uppercase tracking-[0.35em] text-sky-300">
+              Solicitudes de alumnos
+            </p>
+
+            <h2 className="mt-3 text-3xl font-bold">
+              Aprobar registros y accesos
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-slate-400">
+              En esta sección puedes revisar alumnos registrados, aprobar su
+              acceso, suspenderlos, reactivarlos, rechazarlos, asignar sede,
+              grupo y agregar observaciones internas.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-4">
+              <Link
+                href="/admin/registros"
+                className="rounded-2xl bg-sky-500 px-5 py-3 font-semibold text-slate-950 hover:bg-sky-400"
+              >
+                Revisar solicitudes de alumnos
+              </Link>
+
+              <Link
+                href="/resultados"
+                className="rounded-2xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800"
+              >
+                Ver resultados
+              </Link>
+            </div>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                <p className="text-sm text-slate-400">Pendientes</p>
+                <h3 className="mt-2 text-xl font-bold text-yellow-300">
+                  Revisar nuevos registros
+                </h3>
+                <p className="mt-2 text-sm text-slate-400">
+                  Entra a solicitudes para validar alumnos que aún no tienen
+                  acceso.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                <p className="text-sm text-slate-400">Acceso</p>
+                <h3 className="mt-2 text-xl font-bold text-green-300">
+                  Aprobar o suspender
+                </h3>
+                <p className="mt-2 text-sm text-slate-400">
+                  Puedes activar, suspender o reactivar el acceso sin borrar los
+                  datos del alumno.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                <p className="text-sm text-slate-400">Avisos</p>
+                <h3 className="mt-2 text-xl font-bold text-blue-300">
+                  Mensajes por WhatsApp
+                </h3>
+                <p className="mt-2 text-sm text-slate-400">
+                  Al aprobar, suspender, reactivar o rechazar se genera el
+                  mensaje para avisar al alumno.
+                </p>
+              </div>
+            </div>
+          </section>
         )}
 
         {seccion === "materias" && (
@@ -936,7 +1040,13 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_MATERIAS, materias, index, -1, cargarMaterias)
+                            moverOrden(
+                              TABLA_MATERIAS,
+                              materias,
+                              index,
+                              -1,
+                              cargarMaterias
+                            )
                           }
                           disabled={index === 0}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -947,7 +1057,13 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_MATERIAS, materias, index, 1, cargarMaterias)
+                            moverOrden(
+                              TABLA_MATERIAS,
+                              materias,
+                              index,
+                              1,
+                              cargarMaterias
+                            )
                           }
                           disabled={index === materias.length - 1}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -1001,7 +1117,9 @@ export default function AdminPage() {
                   </label>
                   <select
                     value={temaMateriaId}
-                    onChange={(e) => seleccionarMateriaParaTemas(e.target.value)}
+                    onChange={(e) =>
+                      seleccionarMateriaParaTemas(e.target.value)
+                    }
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
                   >
                     <option value="">Selecciona una materia</option>
@@ -1115,12 +1233,20 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_TEMAS, temas, index, -1, async () => {
-                              if (temaMateriaId) {
-                                const lista = await obtenerTemasDeMateria(temaMateriaId);
-                                setTemas(lista);
+                            moverOrden(
+                              TABLA_TEMAS,
+                              temas,
+                              index,
+                              -1,
+                              async () => {
+                                if (temaMateriaId) {
+                                  const lista = await obtenerTemasDeMateria(
+                                    temaMateriaId
+                                  );
+                                  setTemas(lista);
+                                }
                               }
-                            })
+                            )
                           }
                           disabled={index === 0}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -1131,12 +1257,20 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_TEMAS, temas, index, 1, async () => {
-                              if (temaMateriaId) {
-                                const lista = await obtenerTemasDeMateria(temaMateriaId);
-                                setTemas(lista);
+                            moverOrden(
+                              TABLA_TEMAS,
+                              temas,
+                              index,
+                              1,
+                              async () => {
+                                if (temaMateriaId) {
+                                  const lista = await obtenerTemasDeMateria(
+                                    temaMateriaId
+                                  );
+                                  setTemas(lista);
+                                }
                               }
-                            })
+                            )
                           }
                           disabled={index === temas.length - 1}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -1145,7 +1279,11 @@ export default function AdminPage() {
                         </button>
 
                         <Link
-                          href={temaMateriaId ? `/materias/${temaMateriaId}` : "/materias"}
+                          href={
+                            temaMateriaId
+                              ? `/materias/${temaMateriaId}`
+                              : "/materias"
+                          }
                           target="_blank"
                           className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
                         >
@@ -1190,7 +1328,9 @@ export default function AdminPage() {
                   </label>
                   <select
                     value={subtemaMateriaId}
-                    onChange={(e) => seleccionarMateriaParaSubtemas(e.target.value)}
+                    onChange={(e) =>
+                      seleccionarMateriaParaSubtemas(e.target.value)
+                    }
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
                   >
                     <option value="">Selecciona una materia</option>
@@ -1208,7 +1348,9 @@ export default function AdminPage() {
                   </label>
                   <select
                     value={subtemaTemaId}
-                    onChange={(e) => seleccionarTemaParaSubtemas(e.target.value)}
+                    onChange={(e) =>
+                      seleccionarTemaParaSubtemas(e.target.value)
+                    }
                     disabled={!subtemaMateriaId}
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
                   >
@@ -1282,13 +1424,6 @@ export default function AdminPage() {
                     </button>
                   )}
                 </div>
-
-                <Link
-                  href="/admin/contenido-subtemas"
-                  className="inline-flex rounded-xl border border-blue-700 px-4 py-3 font-semibold text-blue-300 hover:bg-blue-950"
-                >
-                  Administrar contenido →
-                </Link>
               </div>
             </section>
 
@@ -1330,12 +1465,20 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_SUBTEMAS, subtemas, index, -1, async () => {
-                              if (subtemaTemaId) {
-                                const lista = await obtenerSubtemasDeTema(subtemaTemaId);
-                                setSubtemas(lista);
+                            moverOrden(
+                              TABLA_SUBTEMAS,
+                              subtemas,
+                              index,
+                              -1,
+                              async () => {
+                                if (subtemaTemaId) {
+                                  const lista = await obtenerSubtemasDeTema(
+                                    subtemaTemaId
+                                  );
+                                  setSubtemas(lista);
+                                }
                               }
-                            })
+                            )
                           }
                           disabled={index === 0}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -1346,12 +1489,20 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_SUBTEMAS, subtemas, index, 1, async () => {
-                              if (subtemaTemaId) {
-                                const lista = await obtenerSubtemasDeTema(subtemaTemaId);
-                                setSubtemas(lista);
+                            moverOrden(
+                              TABLA_SUBTEMAS,
+                              subtemas,
+                              index,
+                              1,
+                              async () => {
+                                if (subtemaTemaId) {
+                                  const lista = await obtenerSubtemasDeTema(
+                                    subtemaTemaId
+                                  );
+                                  setSubtemas(lista);
+                                }
                               }
-                            })
+                            )
                           }
                           disabled={index === subtemas.length - 1}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -1360,7 +1511,18 @@ export default function AdminPage() {
                         </button>
 
                         <Link
-                          href={subtemaMateriaId ? `/materias/${subtemaMateriaId}` : "/materias"}
+                          href={`/admin/contenido-subtemas?materia=${subtemaMateriaId}&tema=${subtemaTemaId}&subtema=${subtema.id}`}
+                          className="rounded-lg border border-cyan-700 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-950"
+                        >
+                          Administrar contenido
+                        </Link>
+
+                        <Link
+                          href={
+                            subtemaMateriaId
+                              ? `/materias/${subtemaMateriaId}`
+                              : "/materias"
+                          }
                           target="_blank"
                           className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
                         >
@@ -1405,7 +1567,9 @@ export default function AdminPage() {
                   </label>
                   <select
                     value={parcialMateriaId}
-                    onChange={(e) => seleccionarMateriaParaParciales(e.target.value)}
+                    onChange={(e) =>
+                      seleccionarMateriaParaParciales(e.target.value)
+                    }
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
                   >
                     <option value="">Selecciona una materia</option>
@@ -1423,7 +1587,9 @@ export default function AdminPage() {
                   </label>
                   <select
                     value={parcialTemaId}
-                    onChange={(e) => seleccionarTemaParaParciales(e.target.value)}
+                    onChange={(e) =>
+                      seleccionarTemaParaParciales(e.target.value)
+                    }
                     disabled={!parcialMateriaId}
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
                   >
@@ -1545,12 +1711,20 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_PARCIALES, parciales, index, -1, async () => {
-                              if (parcialTemaId) {
-                                const lista = await obtenerParcialesDeTema(parcialTemaId);
-                                setParciales(lista);
+                            moverOrden(
+                              TABLA_PARCIALES,
+                              parciales,
+                              index,
+                              -1,
+                              async () => {
+                                if (parcialTemaId) {
+                                  const lista = await obtenerParcialesDeTema(
+                                    parcialTemaId
+                                  );
+                                  setParciales(lista);
+                                }
                               }
-                            })
+                            )
                           }
                           disabled={index === 0}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -1561,12 +1735,20 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_PARCIALES, parciales, index, 1, async () => {
-                              if (parcialTemaId) {
-                                const lista = await obtenerParcialesDeTema(parcialTemaId);
-                                setParciales(lista);
+                            moverOrden(
+                              TABLA_PARCIALES,
+                              parciales,
+                              index,
+                              1,
+                              async () => {
+                                if (parcialTemaId) {
+                                  const lista = await obtenerParcialesDeTema(
+                                    parcialTemaId
+                                  );
+                                  setParciales(lista);
+                                }
                               }
-                            })
+                            )
                           }
                           disabled={index === parciales.length - 1}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -1617,7 +1799,9 @@ export default function AdminPage() {
           <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
             <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
               <h2 className="mb-5 text-xl font-bold">
-                {simuladorEditandoId ? "Editar simulador" : "Crear simulador"}
+                {simuladorEditandoId
+                  ? "Editar simulador"
+                  : "Crear simulador"}
               </h2>
 
               <div className="space-y-4">
@@ -1730,7 +1914,13 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_SIMULADORES, simuladores, index, -1, cargarSimuladores)
+                            moverOrden(
+                              TABLA_SIMULADORES,
+                              simuladores,
+                              index,
+                              -1,
+                              cargarSimuladores
+                            )
                           }
                           disabled={index === 0}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
@@ -1741,7 +1931,13 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            moverOrden(TABLA_SIMULADORES, simuladores, index, 1, cargarSimuladores)
+                            moverOrden(
+                              TABLA_SIMULADORES,
+                              simuladores,
+                              index,
+                              1,
+                              cargarSimuladores
+                            )
                           }
                           disabled={index === simuladores.length - 1}
                           className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"

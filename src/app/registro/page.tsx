@@ -9,6 +9,7 @@ type RegistroFormData = {
   correo_electronico: string;
   usuario_alias: string;
   password: string;
+  confirmar_password: string;
   preparatoria_procedencia: string;
   carrera_deseada: string;
   campus_uabc_deseado: string;
@@ -24,6 +25,7 @@ const datosIniciales: RegistroFormData = {
   correo_electronico: "",
   usuario_alias: "",
   password: "",
+  confirmar_password: "",
   preparatoria_procedencia: "",
   carrera_deseada: "",
   campus_uabc_deseado: "Mexicali",
@@ -41,6 +43,15 @@ export default function RegistroAlumnoPage() {
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
 
+  const passwordEscrita = formData.password.trim().length > 0;
+  const confirmacionEscrita = formData.confirmar_password.trim().length > 0;
+  const passwordsCoinciden =
+    passwordEscrita &&
+    confirmacionEscrita &&
+    formData.password === formData.confirmar_password;
+
+  const mostrarAvisoPassword = passwordEscrita || confirmacionEscrita;
+
   function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
 
@@ -57,6 +68,7 @@ export default function RegistroAlumnoPage() {
       !formData.correo_electronico.trim() ||
       !formData.usuario_alias.trim() ||
       !formData.password.trim() ||
+      !formData.confirmar_password.trim() ||
       !formData.preparatoria_procedencia.trim() ||
       !formData.carrera_deseada.trim() ||
       !formData.campus_uabc_deseado.trim()
@@ -66,6 +78,10 @@ export default function RegistroAlumnoPage() {
 
     if (formData.password.trim().length < 6) {
       return "La contraseña debe tener mínimo 6 caracteres.";
+    }
+
+    if (formData.password !== formData.confirmar_password) {
+      return "Las contraseñas no coinciden. Revisa la contraseña y su confirmación.";
     }
 
     return "";
@@ -118,7 +134,7 @@ export default function RegistroAlumnoPage() {
           setError(
             "Por seguridad, Supabase bloqueó temporalmente los intentos seguidos. Espera un minuto y vuelve a intentarlo."
           );
-        } else if (authError.message.includes("rate limit")) {
+        } else if (authError.message.toLowerCase().includes("rate limit")) {
           setError(
             "Supabase bloqueó temporalmente los registros por varios intentos seguidos. Espera unos minutos y vuelve a intentarlo."
           );
@@ -248,6 +264,31 @@ export default function RegistroAlumnoPage() {
                     onChange={handleChange}
                     placeholder="Mínimo 6 caracteres"
                   />
+
+                  <div>
+                    <CampoTexto
+                      label="Confirmar contraseña *"
+                      name="confirmar_password"
+                      type="password"
+                      value={formData.confirmar_password}
+                      onChange={handleChange}
+                      placeholder="Repite tu contraseña"
+                    />
+
+                    {mostrarAvisoPassword && (
+                      <div
+                        className={`mt-2 rounded-lg border px-3 py-2 text-xs font-medium ${
+                          passwordsCoinciden
+                            ? "border-green-600 bg-green-950 text-green-200"
+                            : "border-red-600 bg-red-950 text-red-200"
+                        }`}
+                      >
+                        {passwordsCoinciden
+                          ? "✓ Las contraseñas coinciden."
+                          : "Las contraseñas todavía no coinciden."}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
 
