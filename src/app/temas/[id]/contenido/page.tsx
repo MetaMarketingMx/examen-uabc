@@ -46,12 +46,28 @@ type ContenidoSubtema = {
   orden?: number | null;
 };
 
+type Parcial = {
+  id: string | number;
+  materia_id?: string | number | null;
+  tema_id?: string | number | null;
+  unidad_id?: string | number | null;
+  id_tema?: string | number | null;
+  id_unidad?: string | number | null;
+  tema?: string | number | null;
+  unidad?: string | number | null;
+  nombre?: string | null;
+  titulo?: string | null;
+  descripcion?: string | null;
+  tiempo_minutos?: number | null;
+  orden?: number | null;
+};
+
 type ProgresoSubtema = {
   subtema_id: string | number;
   completado?: boolean | null;
 };
 
-function nombreDe(item?: Materia | Tema | Subtema | null) {
+function nombreDe(item?: Materia | Tema | Subtema | Parcial | null) {
   return item?.nombre || item?.titulo || "Sin nombre";
 }
 
@@ -79,6 +95,7 @@ export default function ContenidoTemaPage() {
   const [tema, setTema] = useState<Tema | null>(null);
   const [materia, setMateria] = useState<Materia | null>(null);
   const [subtemas, setSubtemas] = useState<Subtema[]>([]);
+  const [parciales, setParciales] = useState<Parcial[]>([]);
   const [contenidoPorSubtema, setContenidoPorSubtema] = useState<
     Record<string, string>
   >({});
@@ -165,6 +182,17 @@ export default function ContenidoTemaPage() {
 
     const subtemasOrdenados = ordenarPorOrden((subtemasData || []) as Subtema[]);
     setSubtemas(subtemasOrdenados);
+
+    const parcialesData = await consultarConFallback("parciales", [
+      { columna: "tema_id", valor: String(temaId) },
+      { columna: "unidad_id", valor: String(temaId) },
+      { columna: "id_tema", valor: String(temaId) },
+      { columna: "id_unidad", valor: String(temaId) },
+      { columna: "tema", valor: String(temaId) },
+      { columna: "unidad", valor: String(temaId) },
+    ]);
+
+    setParciales(ordenarPorOrden((parcialesData || []) as Parcial[]));
 
     const idsSubtemas = subtemasOrdenados.map((subtema) => String(subtema.id));
 
@@ -376,7 +404,9 @@ export default function ContenidoTemaPage() {
   ).length;
 
   const porcentaje =
-    subtemas.length > 0 ? Math.round((totalCompletados / subtemas.length) * 100) : 0;
+    subtemas.length > 0
+      ? Math.round((totalCompletados / subtemas.length) * 100)
+      : 0;
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -474,9 +504,7 @@ export default function ContenidoTemaPage() {
                   key={idSubtema}
                   id={`subtema-${idSubtema}`}
                   className={`overflow-hidden rounded-2xl border bg-slate-900 ${
-                    abierto
-                      ? "border-sky-700"
-                      : "border-slate-800"
+                    abierto ? "border-sky-700" : "border-slate-800"
                   }`}
                 >
                   <button
@@ -537,9 +565,7 @@ export default function ContenidoTemaPage() {
 
                           <button
                             type="button"
-                            onClick={() =>
-                              marcarComoCompletado(subtema, true)
-                            }
+                            onClick={() => marcarComoCompletado(subtema, true)}
                             disabled={guardando}
                             className={`rounded-xl px-4 py-3 text-sm font-bold ${
                               completado
@@ -569,6 +595,45 @@ export default function ContenidoTemaPage() {
                 </article>
               );
             })}
+          </section>
+        )}
+
+        {parciales.length > 0 && (
+          <section className="mt-6 rounded-3xl border border-yellow-700/60 bg-yellow-950/20 p-4 sm:p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-yellow-300">
+              Parciales de esta unidad
+            </p>
+
+            <h2 className="mt-2 text-2xl font-bold">Evaluación</h2>
+
+            <p className="mt-2 text-sm text-slate-400">
+              Cuando termines de estudiar la unidad, puedes resolver el parcial
+              correspondiente.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              {parciales.map((parcial) => (
+                <Link
+                  key={String(parcial.id)}
+                  href={`/parciales/${parcial.id}`}
+                  className="block rounded-2xl bg-slate-950 px-4 py-4 hover:bg-slate-900"
+                >
+                  <h3 className="text-xl font-bold text-yellow-300">
+                    {nombreDe(parcial)} →
+                  </h3>
+
+                  {parcial.descripcion && (
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      {parcial.descripcion}
+                    </p>
+                  )}
+
+                  <p className="mt-3 text-sm text-slate-400">
+                    Tiempo asignado: {parcial.tiempo_minutos || 30} minutos
+                  </p>
+                </Link>
+              ))}
+            </div>
           </section>
         )}
       </section>
