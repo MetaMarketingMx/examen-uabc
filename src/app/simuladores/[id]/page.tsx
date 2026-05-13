@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type Registro = {
@@ -31,8 +31,16 @@ const TABLA_RESULTADOS = "resultados_simuladores";
 
 export default function SimuladorAlumnoPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+
   const rawId = params?.id;
   const simuladorId = Array.isArray(rawId) ? rawId[0] : String(rawId ?? "");
+
+  const volverParam = searchParams.get("volver");
+  const destinoVolver =
+    volverParam && volverParam.startsWith("/") ? volverParam : "/simuladores";
+
+  const storageKey = simuladorId ? `avance_simulador_${simuladorId}` : "";
 
   const [simulador, setSimulador] = useState<Registro | null>(null);
   const [preguntas, setPreguntas] = useState<Registro[]>([]);
@@ -41,8 +49,12 @@ export default function SimuladorAlumnoPage() {
   const [resultadoGuardado, setResultadoGuardado] = useState(false);
   const [guardandoResultado, setGuardandoResultado] = useState(false);
   const [cargando, setCargando] = useState(true);
-  const [segundosRestantes, setSegundosRestantes] = useState<number | null>(null);
+  const [segundosRestantes, setSegundosRestantes] = useState<number | null>(
+    null
+  );
   const [inicioTimestamp, setInicioTimestamp] = useState<number | null>(null);
+  const [mensajeAvance, setMensajeAvance] = useState("");
+  const [avanceGuardadoReciente, setAvanceGuardadoReciente] = useState(false);
 
   useEffect(() => {
     if (!simuladorId) return;
@@ -76,7 +88,9 @@ export default function SimuladorAlumnoPage() {
 
   function obtenerTitulo(item: Registro | null | undefined) {
     if (!item) return "";
-    return String(item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`);
+    return String(
+      item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`
+    );
   }
 
   function obtenerDescripcion(item: Registro | null | undefined) {
@@ -88,7 +102,9 @@ export default function SimuladorAlumnoPage() {
     return [...lista].sort((a, b) => {
       const ordenA = Number(a.orden ?? 0);
       const ordenB = Number(b.orden ?? 0);
+
       if (ordenA !== ordenB) return ordenA - ordenB;
+
       return String(a.id).localeCompare(String(b.id));
     });
   }
@@ -212,6 +228,60 @@ export default function SimuladorAlumnoPage() {
     );
   }
 
+  function cargarAvanceLocal() {
+    if (!storageKey || typeof window === "undefined") return;
+
+    try {
+      const avanceGuardado = window.localStorage.getItem(storageKey);
+      if (!avanceGuardado) return;
+
+      const avance = JSON.parse(avanceGuardado);
+
+      if (avance?.respuestas && typeof avance.respuestas === "object") {
+        setRespuestas(avance.respuestas);
+        setMensajeAvance("Se recuperó un avance guardado de este simulador.");
+      }
+    } catch (error) {
+      console.error("No se pudo cargar el avance local:", error);
+    }
+  }
+
+  function guardarAvanceLocal() {
+    if (!storageKey || typeof window === "undefined") return;
+
+    try {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          simulador_id: simuladorId,
+          respuestas,
+          actualizado_en: new Date().toISOString(),
+        })
+      );
+
+      setMensajeAvance("Avance guardado correctamente en este dispositivo.");
+      setAvanceGuardadoReciente(true);
+
+      window.setTimeout(() => {
+        setAvanceGuardadoReciente(false);
+      }, 2500);
+    } catch (error) {
+      console.error("No se pudo guardar el avance local:", error);
+      setMensajeAvance("No se pudo guardar el avance en este dispositivo.");
+      setAvanceGuardadoReciente(false);
+    }
+  }
+
+  function borrarAvanceLocal() {
+    if (!storageKey || typeof window === "undefined") return;
+
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch (error) {
+      console.error("No se pudo borrar el avance local:", error);
+    }
+  }
+
   async function cargarSimulador() {
     setCargando(true);
 
@@ -247,6 +317,7 @@ export default function SimuladorAlumnoPage() {
       setPreguntas(ordenarLista(preguntasData ?? []));
     }
 
+    cargarAvanceLocal();
     setCargando(false);
   }
 
@@ -254,7 +325,9 @@ export default function SimuladorAlumnoPage() {
     return preguntas.filter((pregunta) => {
       const idPregunta = String(pregunta.id);
       const respuestaAlumno = respuestasActuales[idPregunta];
-      const respuestaCorrecta = String(pregunta.respuesta_correcta ?? "").toUpperCase();
+      const respuestaCorrecta = String(
+        pregunta.respuesta_correcta ?? ""
+      ).toUpperCase();
 
       return respuestaAlumno === respuestaCorrecta;
     }).length;
@@ -265,7 +338,9 @@ export default function SimuladorAlumnoPage() {
   }, [preguntas, respuestas]);
 
   const calificacion =
-    preguntas.length > 0 ? Math.round((totalCorrectas / preguntas.length) * 100) : 0;
+    preguntas.length > 0
+      ? Math.round((totalCorrectas / preguntas.length) * 100)
+      : 0;
 
   function seleccionarRespuesta(idPregunta: string, opcion: string) {
     if (mostrarResultado) return;
@@ -274,6 +349,9 @@ export default function SimuladorAlumnoPage() {
       ...prev,
       [idPregunta]: opcion,
     }));
+
+    setMensajeAvance("");
+    setAvanceGuardadoReciente(false);
   }
 
   function formatearTiempo(segundos: number | null) {
@@ -282,7 +360,10 @@ export default function SimuladorAlumnoPage() {
     const minutos = Math.floor(segundos / 60);
     const seg = segundos % 60;
 
-    return `${String(minutos).padStart(2, "0")}:${String(seg).padStart(2, "0")}`;
+    return `${String(minutos).padStart(2, "0")}:${String(seg).padStart(
+      2,
+      "0"
+    )}`;
   }
 
   function obtenerTiempoUsado() {
@@ -301,7 +382,9 @@ export default function SimuladorAlumnoPage() {
     const detalleRespuestas = preguntas.map((item, index) => {
       const idPregunta = String(item.id);
       const respuestaAlumno = respuestasActuales[idPregunta] ?? "";
-      const respuestaCorrecta = String(item.respuesta_correcta ?? "").toUpperCase();
+      const respuestaCorrecta = String(
+        item.respuesta_correcta ?? ""
+      ).toUpperCase();
 
       return {
         numero: index + 1,
@@ -322,10 +405,14 @@ export default function SimuladorAlumnoPage() {
 
     setGuardandoResultado(true);
 
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
     const { error } = await supabase.from(TABLA_RESULTADOS).insert({
       simulador_id: simuladorId,
-      alumno_id: "sin-login",
-      alumno_nombre: "Alumno sin login",
+      alumno_id: user?.id ?? "sin-login",
+      alumno_nombre:
+        user?.email ?? user?.user_metadata?.nombre_completo ?? "Alumno",
       total_preguntas: total,
       correctas,
       calificacion: calif,
@@ -339,6 +426,7 @@ export default function SimuladorAlumnoPage() {
       setResultadoGuardado(false);
     } else {
       setResultadoGuardado(true);
+      borrarAvanceLocal();
     }
 
     setGuardandoResultado(false);
@@ -347,7 +435,9 @@ export default function SimuladorAlumnoPage() {
   async function terminarSimulador(automatico = false) {
     if (preguntas.length === 0 || mostrarResultado || guardandoResultado) return;
 
-    const sinResponder = preguntas.some((pregunta) => !respuestas[String(pregunta.id)]);
+    const sinResponder = preguntas.some(
+      (pregunta) => !respuestas[String(pregunta.id)]
+    );
 
     if (sinResponder && !automatico) {
       const confirmar = confirm(
@@ -367,6 +457,9 @@ export default function SimuladorAlumnoPage() {
     setMostrarResultado(false);
     setResultadoGuardado(false);
     setGuardandoResultado(false);
+    setMensajeAvance("");
+    setAvanceGuardadoReciente(false);
+    borrarAvanceLocal();
 
     const limite = Number(simulador?.tiempo_minutos ?? 0);
     setSegundosRestantes(limite > 0 ? limite * 60 : null);
@@ -377,8 +470,8 @@ export default function SimuladorAlumnoPage() {
 
   if (cargando) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-        <section className="mx-auto max-w-5xl rounded-3xl border border-slate-800 bg-slate-900 p-8">
+      <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-10">
+        <section className="mx-auto max-w-5xl rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:rounded-3xl sm:p-8">
           <p className="text-slate-300">Cargando simulador...</p>
         </section>
       </main>
@@ -387,8 +480,8 @@ export default function SimuladorAlumnoPage() {
 
   if (!simulador) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-        <section className="mx-auto max-w-5xl rounded-3xl border border-slate-800 bg-slate-900 p-8">
+      <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-10">
+        <section className="mx-auto max-w-5xl rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:rounded-3xl sm:p-8">
           <h1 className="text-3xl font-bold">Simulador no encontrado</h1>
 
           <p className="mt-3 text-slate-400">
@@ -396,7 +489,7 @@ export default function SimuladorAlumnoPage() {
           </p>
 
           <Link
-            href="/simuladores"
+            href={destinoVolver}
             className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
           >
             Volver a simuladores
@@ -407,30 +500,39 @@ export default function SimuladorAlumnoPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
-      <div className="fixed bottom-4 right-4 z-50 rounded-2xl border border-cyan-500/50 bg-slate-950/95 px-5 py-4 text-center shadow-2xl backdrop-blur md:bottom-auto md:top-24">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-6 sm:py-8">
+      <div className="fixed bottom-4 right-4 z-50 rounded-2xl border border-cyan-500/50 bg-slate-950/95 px-4 py-3 text-center shadow-2xl backdrop-blur md:bottom-auto md:top-24">
         <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">
-          Tiempo restante
+          Tiempo
         </p>
-        <p className="mt-1 text-2xl font-black text-white">
+        <p className="mt-1 text-xl font-black text-white sm:text-2xl">
           {formatearTiempo(segundosRestantes)}
         </p>
       </div>
 
       <div className="mx-auto max-w-5xl">
-        <header className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Link
+            href={destinoVolver}
+            className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+          >
+            ← Volver a simuladores
+          </Link>
+        </div>
+
+        <header className="mb-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl sm:mb-8 sm:rounded-3xl sm:p-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">
+              <p className="text-xs uppercase tracking-[0.3em] text-cyan-300 sm:text-sm">
                 Simulador
               </p>
 
-              <h1 className="mt-3 text-4xl font-bold">
+              <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
                 {obtenerTitulo(simulador)}
               </h1>
 
               {obtenerDescripcion(simulador) && (
-                <p className="mt-4 max-w-3xl text-slate-300">
+                <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
                   {obtenerDescripcion(simulador)}
                 </p>
               )}
@@ -444,6 +546,18 @@ export default function SimuladorAlumnoPage() {
             </div>
           </div>
 
+          {mensajeAvance && !mostrarResultado && (
+            <div
+              className={`mt-5 rounded-xl border px-4 py-3 text-sm font-semibold ${
+                avanceGuardadoReciente
+                  ? "border-green-500 bg-green-950 text-green-200"
+                  : "border-cyan-600 bg-cyan-950 text-cyan-200"
+              }`}
+            >
+              {mensajeAvance}
+            </div>
+          )}
+
           {mostrarResultado && (
             <div className="mt-6 rounded-2xl border border-cyan-600/40 bg-cyan-950/30 p-5">
               <p className="text-sm font-semibold uppercase tracking-wider text-cyan-300">
@@ -451,7 +565,8 @@ export default function SimuladorAlumnoPage() {
               </p>
 
               <h2 className="mt-2 text-3xl font-bold">
-                {totalCorrectas} de {preguntas.length} correctas — {calificacion}%
+                {totalCorrectas} de {preguntas.length} correctas —{" "}
+                {calificacion}%
               </h2>
 
               <p className="mt-2 text-slate-300">
@@ -465,12 +580,29 @@ export default function SimuladorAlumnoPage() {
                   ? "Resultado guardado correctamente."
                   : "El resultado no se pudo guardar. Revisa la consola."}
               </p>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href={destinoVolver}
+                  className="rounded-xl bg-cyan-500 px-5 py-3 text-center font-semibold text-slate-950 hover:bg-cyan-400"
+                >
+                  Volver a simuladores
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={reiniciarSimulador}
+                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800"
+                >
+                  Reintentar simulador
+                </button>
+              </div>
             </div>
           )}
         </header>
 
         {preguntas.length === 0 ? (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-8">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 sm:rounded-3xl sm:p-8">
             <h2 className="text-2xl font-bold">
               Este simulador todavía no tiene preguntas
             </h2>
@@ -480,7 +612,7 @@ export default function SimuladorAlumnoPage() {
             </p>
 
             <Link
-              href="/simuladores"
+              href={destinoVolver}
               className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
             >
               Volver a simuladores
@@ -488,7 +620,7 @@ export default function SimuladorAlumnoPage() {
           </section>
         ) : (
           <>
-            <section className="space-y-6">
+            <section className="space-y-4 sm:space-y-6">
               {preguntas.map((pregunta, index) => {
                 const idPregunta = String(pregunta.id);
                 const respuestaAlumno = respuestas[idPregunta];
@@ -506,7 +638,7 @@ export default function SimuladorAlumnoPage() {
                 return (
                   <article
                     key={pregunta.id}
-                    className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6"
+                    className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:rounded-3xl sm:p-6"
                   >
                     <p className="text-sm font-semibold text-blue-300">
                       Pregunta {index + 1}
@@ -525,8 +657,13 @@ export default function SimuladorAlumnoPage() {
                           "border-slate-700 bg-slate-950 hover:bg-slate-800";
 
                         if (mostrarResultado && esCorrecta) {
-                          clase = "border-green-600 bg-green-950 text-green-200";
-                        } else if (mostrarResultado && seleccionada && !esCorrecta) {
+                          clase =
+                            "border-green-600 bg-green-950 text-green-200";
+                        } else if (
+                          mostrarResultado &&
+                          seleccionada &&
+                          !esCorrecta
+                        ) {
                           clase = "border-red-600 bg-red-950 text-red-200";
                         } else if (seleccionada) {
                           clase = "border-blue-600 bg-blue-950 text-blue-100";
@@ -536,7 +673,9 @@ export default function SimuladorAlumnoPage() {
                           <button
                             key={opcion.clave}
                             type="button"
-                            onClick={() => seleccionarRespuesta(idPregunta, opcion.clave)}
+                            onClick={() =>
+                              seleccionarRespuesta(idPregunta, opcion.clave)
+                            }
                             className={`w-full rounded-2xl border px-4 py-3 text-left transition ${clase}`}
                           >
                             <p className="mb-2 font-bold">{opcion.clave})</p>
@@ -562,30 +701,74 @@ export default function SimuladorAlumnoPage() {
               })}
             </section>
 
-            <section className="mt-8 flex flex-col gap-3 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 sm:flex-row sm:items-center sm:justify-between">
-              <Link
-                href="/simuladores"
-                className="rounded-xl border border-slate-700 px-5 py-3 text-center font-semibold text-white hover:bg-slate-800"
-              >
-                Volver a simuladores
-              </Link>
+            <section className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-3xl sm:p-6">
+              {!mostrarResultado ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <Link
+                      href={destinoVolver}
+                      className="rounded-xl border border-slate-700 px-5 py-3 text-center font-semibold text-white hover:bg-slate-800"
+                    >
+                      ← Volver a simuladores
+                    </Link>
 
-              {mostrarResultado ? (
-                <button
-                  type="button"
-                  onClick={reiniciarSimulador}
-                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
-                >
-                  Reintentar simulador
-                </button>
+                    <button
+                      type="button"
+                      onClick={guardarAvanceLocal}
+                      className={`rounded-xl px-5 py-3 text-center font-semibold transition ${
+                        avanceGuardadoReciente
+                          ? "border border-green-500 bg-green-500 text-slate-950"
+                          : "border border-cyan-700 text-cyan-300 hover:bg-cyan-950"
+                      }`}
+                    >
+                      {avanceGuardadoReciente
+                        ? "Avance guardado ✓"
+                        : "Guardar avance"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => terminarSimulador(false)}
+                      className="rounded-xl bg-cyan-500 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-400"
+                    >
+                      Terminar simulador
+                    </button>
+                  </div>
+
+                  {mensajeAvance && !mostrarResultado && (
+                    <div
+                      className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
+                        avanceGuardadoReciente
+                          ? "border-green-500 bg-green-950 text-green-200"
+                          : "border-cyan-600 bg-cyan-950 text-cyan-200"
+                      }`}
+                    >
+                      {mensajeAvance}
+                    </div>
+                  )}
+
+                  <p className="text-xs leading-5 text-slate-400">
+                    Guardar avance conserva tus respuestas en este dispositivo.
+                    El resultado final solo se guarda al terminar el simulador.
+                  </p>
+                </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => terminarSimulador(false)}
-                  className="rounded-xl bg-cyan-500 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-400"
-                >
-                  Terminar simulador
-                </button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Link
+                    href={destinoVolver}
+                    className="rounded-xl bg-cyan-500 px-5 py-3 text-center font-semibold text-slate-950 hover:bg-cyan-400"
+                  >
+                    Volver a simuladores
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={reiniciarSimulador}
+                    className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
+                  >
+                    Reintentar simulador
+                  </button>
+                </div>
               )}
             </section>
           </>
