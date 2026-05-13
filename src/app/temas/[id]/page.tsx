@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -9,7 +9,6 @@ type Materia = {
   id: string | number;
   nombre?: string | null;
   titulo?: string | null;
-  descripcion?: string | null;
 };
 
 type Tema = {
@@ -37,17 +36,35 @@ type Subtema = {
   orden?: number | null;
 };
 
+type ContenidoSubtema = {
+  id: string;
+  subtema_id: string;
+  tipo?: string | null;
+  titulo?: string | null;
+  contenido?: string | null;
+  url?: string | null;
+  orden?: number | null;
+};
+
 type Parcial = {
   id: string | number;
+  materia_id?: string | number | null;
   tema_id?: string | number | null;
   unidad_id?: string | number | null;
   id_tema?: string | number | null;
   id_unidad?: string | number | null;
+  tema?: string | number | null;
+  unidad?: string | number | null;
   nombre?: string | null;
   titulo?: string | null;
   descripcion?: string | null;
   tiempo_minutos?: number | null;
   orden?: number | null;
+};
+
+type ProgresoSubtema = {
+  subtema_id: string | number;
+  completado?: boolean | null;
 };
 
 function nombreDe(item?: Materia | Tema | Subtema | Parcial | null) {
@@ -67,23 +84,37 @@ function ordenarPorOrden<T extends { id: string | number; orden?: number | null 
   });
 }
 
-export default function MateriaDetallePage() {
+export default function ContenidoTemaPage() {
+  const router = useRouter();
   const params = useParams();
-  const materiaId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const searchParams = useSearchParams();
 
+  const temaId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const subtemaInicial = searchParams.get("subtema");
+
+  const [tema, setTema] = useState<Tema | null>(null);
   const [materia, setMateria] = useState<Materia | null>(null);
-  const [temas, setTemas] = useState<Tema[]>([]);
-  const [subtemasPorTema, setSubtemasPorTema] = useState<
-    Record<string, Subtema[]>
+  const [subtemas, setSubtemas] = useState<Subtema[]>([]);
+  const [parciales, setParciales] = useState<Parcial[]>([]);
+  const [contenidoPorSubtema, setContenidoPorSubtema] = useState<
+    Record<string, string>
   >({});
-  const [parcialesPorTema, setParcialesPorTema] = useState<
-    Record<string, Parcial[]>
+  const [subtemasAbiertos, setSubtemasAbiertos] = useState<
+    Record<string, boolean>
   >({});
+  const [subtemasCompletados, setSubtemasCompletados] = useState<Set<string>>(
+    new Set()
+  );
+  const [guardandoSubtemaId, setGuardandoSubtemaId] = useState<string | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
+  const [mensaje, setMensaje] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     cargarDatos();
-  }, [materiaId]);
+  }, [temaId, subtemaInicial]);
 
   async function consultarConFallback(
     tabla: string,
@@ -115,82 +146,249 @@ export default function MateriaDetallePage() {
 
   async function cargarDatos() {
     setLoading(true);
+    setMensaje("");
+    setError("");
 
-    const { data: materiaData } = await supabase
-      .from("materias")
+    const { data: temaData } = await supabase
+      .from("temas")
       .select("*")
-      .eq("id", materiaId)
+      .eq("id", temaId)
       .single();
 
-    const materiaInfo = (materiaData || null) as Materia | null;
-    setMateria(materiaInfo);
+    const temaInfo = (temaData || null) as Tema | null;
+    setTema(temaInfo);
 
-    const temasData = await consultarConFallback("temas", [
-      { columna: "materia_id", valor: String(materiaId) },
-      { columna: "id_materia", valor: String(materiaId) },
-      { columna: "materia", valor: String(materiaId) },
-    ]);
+    const materiaId =
+      temaInfo?.materia_id || temaInfo?.id_materia || temaInfo?.materia;
 
-    const temasOrdenados = ordenarPorOrden((temasData || []) as Tema[]);
-    setTemas(temasOrdenados);
+    if (materiaId) {
+      const { data: materiaData } = await supabase
+        .from("materias")
+        .select("*")
+        .eq("id", materiaId)
+        .single();
 
-    const nuevoMapaSubtemas: Record<string, Subtema[]> = {};
-    const nuevoMapaParciales: Record<string, Parcial[]> = {};
-
-    for (const tema of temasOrdenados) {
-      const idTema = String(tema.id);
-
-      const subtemasData = await consultarConFallback("subtemas", [
-        { columna: "tema_id", valor: idTema },
-        { columna: "unidad_id", valor: idTema },
-        { columna: "id_tema", valor: idTema },
-        { columna: "id_unidad", valor: idTema },
-        { columna: "tema", valor: idTema },
-        { columna: "unidad", valor: idTema },
-      ]);
-
-      const parcialesData = await consultarConFallback("parciales", [
-        { columna: "tema_id", valor: idTema },
-        { columna: "unidad_id", valor: idTema },
-        { columna: "id_tema", valor: idTema },
-        { columna: "id_unidad", valor: idTema },
-        { columna: "tema", valor: idTema },
-        { columna: "unidad", valor: idTema },
-      ]);
-
-      nuevoMapaSubtemas[idTema] = ordenarPorOrden(
-        (subtemasData || []) as Subtema[]
-      );
-
-      nuevoMapaParciales[idTema] = ordenarPorOrden(
-        (parcialesData || []) as Parcial[]
-      );
+      setMateria((materiaData || null) as Materia | null);
     }
 
-    setSubtemasPorTema(nuevoMapaSubtemas);
-    setParcialesPorTema(nuevoMapaParciales);
+    const subtemasData = await consultarConFallback("subtemas", [
+      { columna: "tema_id", valor: String(temaId) },
+      { columna: "unidad_id", valor: String(temaId) },
+      { columna: "id_tema", valor: String(temaId) },
+      { columna: "id_unidad", valor: String(temaId) },
+      { columna: "tema", valor: String(temaId) },
+      { columna: "unidad", valor: String(temaId) },
+    ]);
+
+    const subtemasOrdenados = ordenarPorOrden((subtemasData || []) as Subtema[]);
+    setSubtemas(subtemasOrdenados);
+
+    const parcialesData = await consultarConFallback("parciales", [
+      { columna: "tema_id", valor: String(temaId) },
+      { columna: "unidad_id", valor: String(temaId) },
+      { columna: "id_tema", valor: String(temaId) },
+      { columna: "id_unidad", valor: String(temaId) },
+      { columna: "tema", valor: String(temaId) },
+      { columna: "unidad", valor: String(temaId) },
+    ]);
+
+    setParciales(ordenarPorOrden((parcialesData || []) as Parcial[]));
+
+    const idsSubtemas = subtemasOrdenados.map((subtema) => String(subtema.id));
+
+    if (idsSubtemas.length > 0) {
+      const { data: contenidoData } = await supabase
+        .from("contenido_subtemas")
+        .select("*")
+        .in("subtema_id", idsSubtemas)
+        .order("orden", { ascending: true });
+
+      const contenidoLista = (contenidoData || []) as ContenidoSubtema[];
+
+      const mapaContenido: Record<string, string> = {};
+
+      idsSubtemas.forEach((idSubtema) => {
+        const bloques = contenidoLista
+          .filter((bloque) => String(bloque.subtema_id) === String(idSubtema))
+          .sort((a, b) => Number(a.orden ?? 0) - Number(b.orden ?? 0));
+
+        mapaContenido[idSubtema] = bloques
+          .map((bloque) => bloque.contenido || "")
+          .filter(Boolean)
+          .join("");
+      });
+
+      setContenidoPorSubtema(mapaContenido);
+
+      const abiertos: Record<string, boolean> = {};
+
+      idsSubtemas.forEach((idSubtema) => {
+        if (subtemaInicial) {
+          abiertos[idSubtema] = String(idSubtema) === String(subtemaInicial);
+        } else {
+          abiertos[idSubtema] = true;
+        }
+      });
+
+      setSubtemasAbiertos(abiertos);
+
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      if (user) {
+        const { data: progresoData, error: progresoError } = await supabase
+          .from("progreso_subtemas")
+          .select("subtema_id, completado")
+          .eq("user_id", user.id)
+          .eq("completado", true);
+
+        if (!progresoError) {
+          const progreso = (progresoData || []) as ProgresoSubtema[];
+
+          setSubtemasCompletados(
+            new Set(progreso.map((item) => String(item.subtema_id)))
+          );
+        } else {
+          console.error("Error cargando progreso:", progresoError);
+          setSubtemasCompletados(new Set());
+        }
+      } else {
+        setSubtemasCompletados(new Set());
+      }
+
+      setTimeout(() => {
+        if (subtemaInicial) {
+          const elemento = document.getElementById(`subtema-${subtemaInicial}`);
+          elemento?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 300);
+    } else {
+      setContenidoPorSubtema({});
+      setSubtemasAbiertos({});
+      setSubtemasCompletados(new Set());
+    }
 
     setLoading(false);
   }
 
-  const totalSubtemas = Object.values(subtemasPorTema).reduce(
-    (total, lista) => total + lista.length,
-    0
-  );
+  function alternarSubtema(id: string | number) {
+    const key = String(id);
+
+    setSubtemasAbiertos((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  }
+
+  function obtenerIndiceSubtema(id: string | number) {
+    return subtemas.findIndex((subtema) => String(subtema.id) === String(id));
+  }
+
+  function abrirSubtema(id: string | number) {
+    const key = String(id);
+
+    setSubtemasAbiertos((prev) => ({
+      ...prev,
+      [key]: true,
+    }));
+
+    setTimeout(() => {
+      const elemento = document.getElementById(`subtema-${key}`);
+      elemento?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
+  async function marcarComoCompletado(subtema: Subtema, irAlSiguiente = false) {
+    setMensaje("");
+    setError("");
+
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
+    if (!user) {
+      setError("Necesitas iniciar sesión para guardar tu avance.");
+      return;
+    }
+
+    const idSubtema = String(subtema.id);
+    const materiaId =
+      tema?.materia_id || tema?.id_materia || tema?.materia || materia?.id || null;
+
+    setGuardandoSubtemaId(idSubtema);
+
+    const { error: upsertError } = await supabase
+      .from("progreso_subtemas")
+      .upsert(
+        {
+          user_id: user.id,
+          materia_id: materiaId ? String(materiaId) : null,
+          tema_id: String(temaId),
+          subtema_id: idSubtema,
+          completado: true,
+          completed_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,subtema_id",
+        }
+      );
+
+    setGuardandoSubtemaId(null);
+
+    if (upsertError) {
+      console.error("Error guardando avance:", upsertError);
+      setError("No se pudo guardar el avance. Revisa la tabla progreso_subtemas.");
+      return;
+    }
+
+    setSubtemasCompletados((prev) => {
+      const nuevo = new Set(prev);
+      nuevo.add(idSubtema);
+      return nuevo;
+    });
+
+    setMensaje("Avance guardado correctamente.");
+
+    if (irAlSiguiente) {
+      const indiceActual = obtenerIndiceSubtema(idSubtema);
+      const siguiente = subtemas[indiceActual + 1];
+
+      if (siguiente) {
+        abrirSubtema(siguiente.id);
+      }
+    }
+  }
+
+  function irAnterior(id: string | number) {
+    const indiceActual = obtenerIndiceSubtema(id);
+    const anterior = subtemas[indiceActual - 1];
+
+    if (anterior) {
+      abrirSubtema(anterior.id);
+    }
+  }
+
+  function irSiguiente(id: string | number) {
+    const indiceActual = obtenerIndiceSubtema(id);
+    const siguiente = subtemas[indiceActual + 1];
+
+    if (siguiente) {
+      abrirSubtema(siguiente.id);
+    }
+  }
 
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-950 p-5 text-white">
-        Cargando materia...
+        Cargando contenido...
       </main>
     );
   }
 
-  if (!materia) {
+  if (!tema) {
     return (
       <main className="min-h-screen bg-slate-950 p-5 text-white">
         <section className="mx-auto max-w-3xl rounded-2xl border border-red-500 bg-red-950/40 p-5">
-          <h1 className="text-2xl font-bold">No se encontró la materia</h1>
+          <h1 className="text-2xl font-bold">No se encontró la unidad</h1>
 
           <Link
             href="/materias"
@@ -203,179 +401,338 @@ export default function MateriaDetallePage() {
     );
   }
 
+  const totalCompletados = subtemas.filter((subtema) =>
+    subtemasCompletados.has(String(subtema.id))
+  ).length;
+
+  const porcentaje =
+    subtemas.length > 0
+      ? Math.round((totalCompletados / subtemas.length) * 100)
+      : 0;
+
+  const volverUnidad = `/temas/${temaId}/contenido`;
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-8">
         <div className="mb-4 flex flex-wrap gap-2">
-          <Link
-            href="/materias"
+          <button
+            type="button"
+            onClick={() => router.back()}
             className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
           >
-            ← Materias
-          </Link>
+            ← Volver atrás
+          </button>
 
-          <Link
-            href="/panel-alumno"
-            className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
-          >
-            Panel
-          </Link>
+          {materia?.id && (
+            <Link
+              href={`/materias/${materia.id}`}
+              className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+            >
+              Ver materia
+            </Link>
+          )}
         </div>
 
         <header className="mb-5 border-b border-slate-800 pb-5">
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-sky-300">
-            Materia
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-300">
+            Contenido de la unidad
           </p>
 
-          <h1 className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">
-            {nombreDe(materia)}
+          <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
+            {nombreDe(tema)}
           </h1>
 
-          {materia.descripcion && (
-            <p className="mt-3 text-sm leading-6 text-slate-300 sm:text-base">
-              {materia.descripcion}
+          <p className="mt-2 text-sm text-slate-400">
+            Materia: {materia ? nombreDe(materia) : "Sin materia"}
+          </p>
+
+          {tema.descripcion && (
+            <p className="mt-4 text-sm leading-6 text-slate-300 sm:text-base">
+              {tema.descripcion}
             </p>
           )}
 
           <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="font-semibold text-slate-200">Avance general</p>
-              <p className="font-bold text-slate-300">0%</p>
+              <p className="text-sm font-semibold text-slate-300">
+                Avance de la unidad
+              </p>
+              <p className="text-sm font-bold text-slate-300">{porcentaje}%</p>
             </div>
 
-            <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-800">
-              <div className="h-full w-0 rounded-full bg-sky-500" />
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full rounded-full bg-sky-500"
+                style={{ width: `${porcentaje}%` }}
+              />
             </div>
 
-            <p className="mt-3 text-sm text-slate-400">
-              0 de {totalSubtemas} publicaciones completadas
+            <p className="mt-3 text-xs text-slate-400">
+              {totalCompletados} de {subtemas.length} publicaciones completadas
             </p>
           </div>
         </header>
 
-        <section className="mb-5">
-          <h2 className="text-2xl font-bold">Temario y avance</h2>
+        {mensaje && (
+          <div className="mb-4 rounded-xl border border-green-500 bg-green-950 p-4 text-sm text-green-200">
+            {mensaje}
+          </div>
+        )}
 
-          {temas.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <p className="text-slate-400">
-                Esta materia todavía no tiene unidades registradas.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-4">
-              {temas.map((tema, temaIndex) => {
-                const idTema = String(tema.id);
-                const subtemas = subtemasPorTema[idTema] || [];
-                const parciales = parcialesPorTema[idTema] || [];
-                const subtemasVisibles = subtemas.slice(0, 3);
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-500 bg-red-950 p-4 text-sm text-red-200">
+            {error}
+          </div>
+        )}
 
-                return (
-                  <article
-                    key={idTema}
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5"
+        {subtemas.length === 0 ? (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <p className="text-slate-300">
+              Esta unidad todavía no tiene publicaciones registradas.
+            </p>
+          </section>
+        ) : (
+          <section className="space-y-4">
+            {subtemas.map((subtema, index) => {
+              const idSubtema = String(subtema.id);
+              const abierto = Boolean(subtemasAbiertos[idSubtema]);
+              const contenidoHtml = contenidoPorSubtema[idSubtema] || "";
+              const completado = subtemasCompletados.has(idSubtema);
+              const esPrimero = index === 0;
+              const esUltimo = index === subtemas.length - 1;
+              const guardando = guardandoSubtemaId === idSubtema;
+
+              return (
+                <article
+                  key={idSubtema}
+                  id={`subtema-${idSubtema}`}
+                  className={`overflow-hidden rounded-2xl border bg-slate-900 ${
+                    abierto ? "border-sky-700" : "border-slate-800"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => alternarSubtema(idSubtema)}
+                    className="flex w-full items-start justify-between gap-4 p-4 text-left hover:bg-slate-800/70 sm:p-5"
                   >
-                    <div className="mb-4">
+                    <div>
                       <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300">
-                        Unidad {temaIndex + 1}
+                        Publicación {index + 1} de {subtemas.length}
                       </p>
 
-                      <h3 className="mt-2 text-xl font-bold leading-tight sm:text-2xl">
-                        {nombreDe(tema)}
-                      </h3>
+                      <h2 className="mt-2 text-2xl font-bold leading-tight">
+                        {nombreDe(subtema)}
+                      </h2>
 
-                      {tema.descripcion && (
+                      {subtema.descripcion && (
                         <p className="mt-2 text-sm leading-6 text-slate-400">
-                          {tema.descripcion}
+                          {subtema.descripcion}
+                        </p>
+                      )}
+
+                      {completado && (
+                        <p className="mt-2 text-sm font-semibold text-green-300">
+                          ✓ Completado
                         </p>
                       )}
                     </div>
 
-                    <div className="mb-4 rounded-2xl bg-slate-950 p-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <p className="text-sm text-slate-400">
-                          0 de {subtemas.length} completadas
-                        </p>
-                        <p className="text-sm font-bold text-slate-300">0%</p>
-                      </div>
+                    <span className="mt-1 rounded-full border border-slate-700 px-3 py-1 text-sm text-slate-300">
+                      {abierto ? "−" : "+"}
+                    </span>
+                  </button>
 
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
-                        <div className="h-full w-0 rounded-full bg-sky-500" />
-                      </div>
-                    </div>
+                  {abierto && (
+                    <div className="border-t border-slate-800 bg-white">
+                      {contenidoHtml ? (
+                        <div
+                          className="contenido-unidad px-4 py-5 text-slate-950 sm:px-6 sm:py-7"
+                          dangerouslySetInnerHTML={{ __html: contenidoHtml }}
+                        />
+                      ) : (
+                        <div className="px-4 py-5 text-slate-500 sm:px-6">
+                          Este subtema todavía no tiene contenido publicado.
+                        </div>
+                      )}
 
-                    {subtemas.length === 0 ? (
-                      <p className="rounded-xl bg-slate-950 p-4 text-sm text-slate-400">
-                        Esta unidad todavía no tiene publicaciones.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {subtemasVisibles.map((subtema) => (
-                          <Link
-                            key={String(subtema.id)}
-                            href={`/temas/${idTema}/contenido?subtema=${subtema.id}`}
-                            className="flex items-center justify-between gap-3 rounded-xl bg-slate-800 px-4 py-3 hover:bg-slate-700"
+                      <div className="border-t border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <button
+                            type="button"
+                            onClick={() => irAnterior(idSubtema)}
+                            disabled={esPrimero}
+                            className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 disabled:opacity-40"
                           >
-                            <div>
-                              <h4 className="text-base font-semibold leading-tight">
-                                {nombreDe(subtema)}
-                              </h4>
+                            ← Anterior
+                          </button>
 
-                              {subtema.descripcion && (
-                                <p className="mt-1 text-xs leading-5 text-slate-400">
-                                  {subtema.descripcion}
-                                </p>
-                              )}
-                            </div>
+                          <button
+                            type="button"
+                            onClick={() => marcarComoCompletado(subtema, true)}
+                            disabled={guardando}
+                            className={`rounded-xl px-4 py-3 text-sm font-bold ${
+                              completado
+                                ? "bg-green-500 text-slate-950"
+                                : "bg-blue-600 text-white"
+                            } disabled:opacity-50`}
+                          >
+                            {guardando
+                              ? "Guardando..."
+                              : completado
+                              ? "Completado ✓"
+                              : "Marcar como completado"}
+                          </button>
 
-                            <span className="shrink-0 rounded-full bg-slate-700 px-3 py-1 text-sm font-bold">
-                              →
-                            </span>
-                          </Link>
-                        ))}
-
-                        <Link
-                          href={`/temas/${idTema}/contenido`}
-                          className="mt-3 flex w-full justify-center rounded-xl bg-sky-500 px-4 py-3 text-center font-bold text-slate-950 hover:bg-sky-400"
-                        >
-                          Ver las {subtemas.length} publicaciones
-                        </Link>
-                      </div>
-                    )}
-
-                    {parciales.length > 0 && (
-                      <div className="mt-4 rounded-2xl border border-yellow-700/60 bg-yellow-950/20 p-4">
-                        <p className="text-xs font-bold uppercase tracking-[0.25em] text-yellow-300">
-                          Parcial de la unidad
-                        </p>
-
-                        <div className="mt-3 space-y-2">
-                          {parciales.map((parcial) => (
-                            <Link
-                              key={String(parcial.id)}
-                              href={`/parciales/${parcial.id}`}
-                              className="block rounded-xl bg-slate-950 px-4 py-3 hover:bg-slate-900"
-                            >
-                              <h4 className="font-bold text-yellow-300">
-                                {nombreDe(parcial)} →
-                              </h4>
-
-                              <p className="mt-1 text-xs text-slate-400">
-                                Tiempo asignado:{" "}
-                                {parcial.tiempo_minutos || 30} minutos
-                              </p>
-                            </Link>
-                          ))}
+                          <button
+                            type="button"
+                            onClick={() => irSiguiente(idSubtema)}
+                            disabled={esUltimo}
+                            className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 disabled:opacity-40"
+                          >
+                            Siguiente →
+                          </button>
                         </div>
                       </div>
-                    )}
-                  </article>
-                );
-              })}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </section>
+        )}
+
+        {parciales.length > 0 && (
+          <section className="mt-6 rounded-3xl border border-yellow-700/60 bg-yellow-950/20 p-4 sm:p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-yellow-300">
+              Parciales de esta unidad
+            </p>
+
+            <h2 className="mt-2 text-2xl font-bold">Evaluación</h2>
+
+            <p className="mt-2 text-sm text-slate-400">
+              Cuando termines de estudiar la unidad, puedes resolver el parcial
+              correspondiente.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              {parciales.map((parcial) => (
+                <Link
+                  key={String(parcial.id)}
+                  href={`/parciales/${parcial.id}?volver=${encodeURIComponent(
+                    volverUnidad
+                  )}`}
+                  className="block rounded-2xl bg-slate-950 px-4 py-4 hover:bg-slate-900"
+                >
+                  <h3 className="text-xl font-bold text-yellow-300">
+                    {nombreDe(parcial)} →
+                  </h3>
+
+                  {parcial.descripcion && (
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      {parcial.descripcion}
+                    </p>
+                  )}
+
+                  <p className="mt-3 text-sm text-slate-400">
+                    Tiempo asignado: {parcial.tiempo_minutos || 30} minutos
+                  </p>
+                </Link>
+              ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
       </section>
+
+      <style jsx global>{`
+        .contenido-unidad {
+          line-height: 1.75;
+          font-size: 16px;
+          overflow-wrap: anywhere;
+        }
+
+        .contenido-unidad h1,
+        .contenido-unidad h2,
+        .contenido-unidad h3 {
+          color: #0f172a;
+          font-weight: 800;
+          margin: 1.25rem 0 0.75rem;
+          line-height: 1.2;
+        }
+
+        .contenido-unidad h1 {
+          font-size: 2rem;
+        }
+
+        .contenido-unidad h2 {
+          font-size: 1.75rem;
+        }
+
+        .contenido-unidad h3 {
+          font-size: 1.35rem;
+        }
+
+        .contenido-unidad p {
+          margin: 0.85rem 0;
+        }
+
+        .contenido-unidad ul,
+        .contenido-unidad ol {
+          padding-left: 1.4rem;
+          margin: 1rem 0;
+        }
+
+        .contenido-unidad li {
+          margin: 0.35rem 0;
+        }
+
+        .contenido-unidad img {
+          max-width: 100%;
+          height: auto;
+        }
+
+        .contenido-unidad iframe {
+          max-width: 100%;
+        }
+
+        .contenido-unidad video {
+          max-width: 100%;
+        }
+
+        .contenido-unidad a {
+          color: #2563eb;
+          text-decoration: underline;
+          font-weight: 600;
+        }
+
+        .contenido-unidad figure {
+          margin: 1.25rem 0;
+        }
+
+        .contenido-unidad figcaption {
+          color: #64748b;
+          font-size: 0.9rem;
+          text-align: center;
+        }
+
+        @media (max-width: 640px) {
+          .contenido-unidad {
+            font-size: 15px;
+          }
+
+          .contenido-unidad h1 {
+            font-size: 1.75rem;
+          }
+
+          .contenido-unidad h2 {
+            font-size: 1.5rem;
+          }
+
+          .contenido-unidad h3 {
+            font-size: 1.25rem;
+          }
+        }
+      `}</style>
     </main>
   );
 }
