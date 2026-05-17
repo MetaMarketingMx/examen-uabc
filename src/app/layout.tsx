@@ -1,37 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import MenuPrincipal from "@/components/MenuPrincipal";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import HeaderPrincipal from "@/components/HeaderPrincipal";
 
 export const metadata: Metadata = {
   title: "Examen UABC",
-  description: "Plataforma académica para preparar el examen UABC",
+  description: "Plataforma académica para preparación de examen UABC",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html
-      lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="flex min-h-full flex-col bg-slate-950 text-white">
-        <MenuPrincipal />
-
-        <div className="flex-1">{children}</div>
+    <html lang="es">
+      <body className="bg-slate-50 text-slate-900">
+        <HeaderPrincipal />
+        {children}
       </body>
     </html>
   );

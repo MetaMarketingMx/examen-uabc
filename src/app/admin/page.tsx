@@ -1954,7 +1954,21 @@ export default function AdminPage() {
                         </Link>
 
                         <Link
-                          href="/admin/preguntas-simuladores"
+                          href={`/admin/secciones-simuladores?simulador=${simulador.id}`}
+                          className="rounded-lg border border-purple-700 px-3 py-2 text-sm font-semibold text-purple-300 hover:bg-purple-950"
+                        >
+                          Secciones
+                        </Link>
+
+                        <Link
+                          href={`/admin/instrucciones-simuladores?simulador=${simulador.id}`}
+                          className="rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-950"
+                        >
+                          Instrucciones
+                        </Link>
+
+                        <Link
+                          href={`/admin/preguntas-simuladores?simulador=${simulador.id}`}
                           className="rounded-lg border border-cyan-700 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-950"
                         >
                           Preguntas
