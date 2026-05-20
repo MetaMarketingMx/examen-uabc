@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -51,6 +51,7 @@ export default function ParcialAlumnoPage() {
     volverParam && volverParam.startsWith("/") ? volverParam : "";
 
   const storageKey = parcialId ? `avance_parcial_${parcialId}` : "";
+  const nuevoIntento = searchParams.get("nuevo") === "1";
 
   const [parcial, setParcial] = useState<Registro | null>(null);
   const [preguntas, setPreguntas] = useState<Registro[]>([]);
@@ -65,13 +66,22 @@ export default function ParcialAlumnoPage() {
   const [inicioTimestamp, setInicioTimestamp] = useState<number | null>(null);
   const [mensajeAvance, setMensajeAvance] = useState("");
   const [avanceGuardadoReciente, setAvanceGuardadoReciente] = useState(false);
+  const [mostrarDialogoSalida, setMostrarDialogoSalida] = useState(false);
   const [destinoVolver, setDestinoVolver] = useState(
     volverDesdeUrl || "/materias"
   );
+  const [destinoSalidaPendiente, setDestinoSalidaPendiente] = useState<
+    string | null
+  >(null);
+
+  const salidaPermitidaRef = useRef(false);
+  const avanceOriginalRef = useRef<string | null>(null);
+  const historialProtegidoRef = useRef(false);
 
   useEffect(() => {
     if (!parcialId) return;
     cargarParcial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parcialId]);
 
   useEffect(() => {
@@ -97,7 +107,86 @@ export default function ParcialAlumnoPage() {
     }, 1000);
 
     return () => window.clearInterval(intervalo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parcial, mostrarResultado, segundosRestantes, respuestas, preguntas]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!historialProtegidoRef.current) {
+      window.history.pushState(
+        { parcialProtegido: true },
+        "",
+        window.location.href
+      );
+
+      historialProtegidoRef.current = true;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (mostrarResultado || salidaPermitidaRef.current) return;
+
+      event.preventDefault();
+      event.returnValue = "¿Seguro que deseas salir del parcial?";
+    };
+
+    const handlePopState = () => {
+      if (mostrarResultado || salidaPermitidaRef.current) return;
+
+      window.history.pushState(
+        { parcialProtegido: true },
+        "",
+        window.location.href
+      );
+
+      setDestinoSalidaPendiente(destinoVolver);
+      setMostrarDialogoSalida(true);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [mostrarResultado, destinoVolver]);
+
+  useEffect(() => {
+    function interceptarClicks(event: MouseEvent) {
+      if (mostrarResultado || salidaPermitidaRef.current) return;
+
+      const target = event.target as HTMLElement | null;
+      const enlace = target?.closest("a") as HTMLAnchorElement | null;
+
+      if (!enlace) return;
+
+      const href = enlace.getAttribute("href");
+
+      if (!href) return;
+      if (href.startsWith("#")) return;
+      if (href.startsWith("javascript:")) return;
+      if (enlace.target === "_blank") return;
+
+      event.preventDefault();
+
+      try {
+        const url = new URL(href, window.location.origin);
+        const destino = `${url.pathname}${url.search}${url.hash}`;
+        setDestinoSalidaPendiente(destino);
+      } catch {
+        setDestinoSalidaPendiente(href);
+      }
+
+      setMostrarDialogoSalida(true);
+    }
+
+    document.addEventListener("click", interceptarClicks, true);
+
+    return () => {
+      document.removeEventListener("click", interceptarClicks, true);
+    };
+  }, [mostrarResultado]);
 
   function construirDestinoVolver(parcialData: Registro | null) {
     if (volverDesdeUrl) {
@@ -119,17 +208,40 @@ export default function ParcialAlumnoPage() {
     return "/materias";
   }
 
-  function volverAtras() {
+  function navegarSalidaPermitida() {
+    const destino = destinoSalidaPendiente || destinoVolver;
+
+    if (destino) {
+      router.push(destino);
+      return;
+    }
+
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
       return;
     }
 
-    router.push(destinoVolver);
+    router.push("/materias");
+  }
+
+  function volverAtras() {
+    if (mostrarResultado) {
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        router.back();
+        return;
+      }
+
+      router.push(destinoVolver);
+      return;
+    }
+
+    setDestinoSalidaPendiente(destinoVolver);
+    setMostrarDialogoSalida(true);
   }
 
   function obtenerTitulo(item: Registro | null | undefined) {
     if (!item) return "";
+
     return String(
       item.nombre ?? item.titulo ?? item.title ?? `Registro ${item.id}`
     );
@@ -244,7 +356,7 @@ export default function ParcialAlumnoPage() {
     }
 
     return (
-      <div className="prose-exam text-slate-100">
+      <div className="prose-exam text-slate-700">
         {partes.map((parte, index) => {
           if (parte.tipo === "imagen") {
             return (
@@ -275,31 +387,43 @@ export default function ParcialAlumnoPage() {
 
     try {
       const avanceGuardado = window.localStorage.getItem(storageKey);
+
+      avanceOriginalRef.current = avanceGuardado;
+
       if (!avanceGuardado) return;
 
       const avance = JSON.parse(avanceGuardado);
 
       if (avance?.respuestas && typeof avance.respuestas === "object") {
         setRespuestas(avance.respuestas);
-        setMensajeAvance("Se recuperó un avance guardado de este parcial.");
       }
+
+      if (
+        typeof avance?.segundos_restantes === "number" &&
+        avance.segundos_restantes >= 0
+      ) {
+        setSegundosRestantes(avance.segundos_restantes);
+      }
+
+      setMensajeAvance("Se recuperó un avance guardado de este parcial.");
     } catch (error) {
       console.error("No se pudo cargar el avance local:", error);
     }
   }
 
   function guardarAvanceLocal() {
-    if (!storageKey || typeof window === "undefined") return;
+    if (!storageKey || typeof window === "undefined") return false;
 
     try {
-      window.localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          parcial_id: parcialId,
-          respuestas,
-          actualizado_en: new Date().toISOString(),
-        })
-      );
+      const avanceNuevo = JSON.stringify({
+        parcial_id: parcialId,
+        respuestas,
+        segundos_restantes: segundosRestantes,
+        actualizado_en: new Date().toISOString(),
+      });
+
+      window.localStorage.setItem(storageKey, avanceNuevo);
+      avanceOriginalRef.current = avanceNuevo;
 
       setMensajeAvance("Avance guardado correctamente en este dispositivo.");
       setAvanceGuardadoReciente(true);
@@ -307,10 +431,13 @@ export default function ParcialAlumnoPage() {
       window.setTimeout(() => {
         setAvanceGuardadoReciente(false);
       }, 2500);
+
+      return true;
     } catch (error) {
       console.error("No se pudo guardar el avance local:", error);
       setMensajeAvance("No se pudo guardar el avance en este dispositivo.");
       setAvanceGuardadoReciente(false);
+      return false;
     }
   }
 
@@ -324,7 +451,46 @@ export default function ParcialAlumnoPage() {
     }
   }
 
+  function restaurarAvanceOriginal() {
+    if (!storageKey || typeof window === "undefined") return;
+
+    try {
+      if (avanceOriginalRef.current) {
+        window.localStorage.setItem(storageKey, avanceOriginalRef.current);
+      } else {
+        window.localStorage.removeItem(storageKey);
+      }
+    } catch (error) {
+      console.error("No se pudo restaurar el avance original:", error);
+    }
+  }
+
+  function confirmarSalida(sinGuardar = false) {
+    if (sinGuardar) {
+      salidaPermitidaRef.current = true;
+      setMostrarDialogoSalida(false);
+      navegarSalidaPermitida();
+      return;
+    }
+
+    const guardado = guardarAvanceLocal();
+
+    if (guardado) {
+      salidaPermitidaRef.current = true;
+      setMostrarDialogoSalida(false);
+      navegarSalidaPermitida();
+    }
+  }
+
+  function cancelarSalida() {
+    setMostrarDialogoSalida(false);
+    setDestinoSalidaPendiente(null);
+    restaurarAvanceOriginal();
+  }
+
   async function cargarParcial() {
+    salidaPermitidaRef.current = false;
+    historialProtegidoRef.current = false;
     setCargando(true);
 
     const { data: parcialData, error: parcialError } = await supabase
@@ -348,7 +514,9 @@ export default function ParcialAlumnoPage() {
     setDestinoVolver(destinoCalculado);
 
     const limite = Number(parcialData.tiempo_minutos ?? 0);
-    setSegundosRestantes(limite > 0 ? limite * 60 : null);
+    const segundosIniciales = limite > 0 ? limite * 60 : null;
+
+    setSegundosRestantes(segundosIniciales);
     setInicioTimestamp(Date.now());
 
     const { data: preguntasData, error: preguntasError } = await supabase
@@ -363,7 +531,14 @@ export default function ParcialAlumnoPage() {
       setPreguntas(ordenarLista(preguntasData ?? []));
     }
 
-    cargarAvanceLocal();
+    if (nuevoIntento) {
+      borrarAvanceLocal();
+      setRespuestas({});
+      setMensajeAvance("Comenzando un nuevo intento desde cero.");
+    } else {
+      cargarAvanceLocal();
+    }
+
     setCargando(false);
   }
 
@@ -493,6 +668,7 @@ export default function ParcialAlumnoPage() {
       if (!confirmar) return;
     }
 
+    salidaPermitidaRef.current = true;
     setMostrarResultado(true);
     await guardarResultado(respuestas);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -505,6 +681,8 @@ export default function ParcialAlumnoPage() {
     setGuardandoResultado(false);
     setMensajeAvance("");
     setAvanceGuardadoReciente(false);
+    salidaPermitidaRef.current = false;
+    historialProtegidoRef.current = false;
     borrarAvanceLocal();
 
     const limite = Number(parcial?.tiempo_minutos ?? 0);
@@ -516,9 +694,27 @@ export default function ParcialAlumnoPage() {
 
   if (cargando) {
     return (
-      <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-10">
-        <section className="mx-auto max-w-5xl rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:rounded-3xl sm:p-8">
-          <p className="text-slate-300">Cargando parcial...</p>
+      <main className="min-h-screen bg-[#f6f8fc] text-slate-900">
+        <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-3xl">
+                📝
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-blue-600">Parcial</p>
+
+                <h1 className="mt-1 text-2xl font-semibold text-slate-900">
+                  Cargando parcial...
+                </h1>
+              </div>
+            </div>
+
+            <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full w-2/5 animate-pulse rounded-full bg-blue-600" />
+            </div>
+          </div>
         </section>
       </main>
     );
@@ -526,140 +722,160 @@ export default function ParcialAlumnoPage() {
 
   if (!parcial) {
     return (
-      <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-10">
-        <section className="mx-auto max-w-5xl rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:rounded-3xl sm:p-8">
-          <h1 className="text-3xl font-bold">Parcial no encontrado</h1>
+      <main className="min-h-screen bg-[#f6f8fc] text-slate-900">
+        <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h1 className="text-3xl font-semibold text-slate-900">
+              Parcial no encontrado
+            </h1>
 
-          <p className="mt-3 text-slate-400">
-            No se encontró el parcial solicitado.
-          </p>
+            <p className="mt-3 text-slate-600">
+              No se encontró el parcial solicitado.
+            </p>
 
-          <Link
-            href={destinoVolver}
-            className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
-          >
-            Volver a la unidad
-          </Link>
+            <Link
+              href={destinoVolver}
+              className="mt-6 inline-flex rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white hover:bg-blue-500"
+            >
+              Volver a la unidad
+            </Link>
+          </div>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-6 sm:py-8">
-      <div className="fixed bottom-4 right-4 z-50 rounded-2xl border border-yellow-500/50 bg-slate-950/95 px-4 py-3 text-center shadow-2xl backdrop-blur md:bottom-auto md:top-24">
-        <p className="text-xs font-bold uppercase tracking-widest text-yellow-300">
+    <main className="min-h-screen bg-[#f6f8fc] px-3 py-4 text-slate-900 sm:px-6 sm:py-8">
+      <div className="fixed bottom-4 right-4 z-50 rounded-3xl border border-blue-300 bg-white px-5 py-4 text-center shadow-2xl ring-4 ring-blue-100/70 md:bottom-auto md:top-24">
+        <p className="text-xs font-bold uppercase tracking-[0.25em] text-blue-600">
           Tiempo
         </p>
-        <p className="mt-1 text-xl font-black text-white sm:text-2xl">
+
+        <p className="mt-1 text-3xl font-semibold leading-none text-slate-950 sm:text-4xl">
           {formatearTiempo(segundosRestantes)}
         </p>
       </div>
 
       <div className="mx-auto max-w-5xl">
         <div className="mb-4 flex flex-wrap gap-2">
-          <Link
-            href={destinoVolver}
-            className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+          <button
+            type="button"
+            onClick={volverAtras}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"
           >
             ← Volver a la unidad
-          </Link>
+          </button>
         </div>
 
-        <header className="mb-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl sm:mb-8 sm:rounded-3xl sm:p-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <header className="relative mb-5 overflow-hidden rounded-[2rem] bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 p-6 text-white shadow-sm sm:mb-8 sm:p-8">
+          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-yellow-300 sm:text-sm">
+              <p className="text-sm font-semibold text-blue-100">
                 Parcial de unidad
               </p>
 
-              <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
                 {obtenerTitulo(parcial)}
               </h1>
 
               {obtenerDescripcion(parcial) && (
-                <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
+                <p className="mt-4 max-w-3xl text-sm leading-6 text-blue-50 sm:text-base sm:leading-7">
                   {obtenerDescripcion(parcial)}
                 </p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-yellow-700/40 bg-yellow-950/30 p-4 text-center">
-              <p className="text-sm text-yellow-300">Tiempo restante</p>
-              <p className="mt-1 text-3xl font-bold">
+            <div className="rounded-3xl border border-white/40 bg-white p-5 text-center shadow-lg">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-blue-600">
+                Tiempo restante
+              </p>
+
+              <p className="mt-2 text-4xl font-semibold leading-none text-slate-950">
                 {formatearTiempo(segundosRestantes)}
               </p>
             </div>
           </div>
 
-          {mensajeAvance && !mostrarResultado && (
-            <div
-              className={`mt-5 rounded-xl border px-4 py-3 text-sm font-semibold ${
-                avanceGuardadoReciente
-                  ? "border-green-500 bg-green-950 text-green-200"
-                  : "border-sky-600 bg-sky-950 text-sky-200"
-              }`}
-            >
-              {mensajeAvance}
-            </div>
-          )}
+          <div className="absolute bottom-0 right-8 hidden h-36 w-60 lg:block">
+            <div className="absolute bottom-0 right-10 h-24 w-36 rounded-t-[3rem] bg-white/25 backdrop-blur" />
+            <div className="absolute bottom-8 right-0 h-20 w-32 rounded-3xl bg-white/90 shadow-lg" />
+            <div className="absolute bottom-14 right-7 h-3 w-20 rounded-full bg-blue-200" />
+            <div className="absolute bottom-10 right-7 h-3 w-16 rounded-full bg-blue-100" />
+            <div className="absolute bottom-16 right-4 text-3xl">📝</div>
+          </div>
 
-          {mostrarResultado && (
-            <div className="mt-6 rounded-2xl border border-yellow-600/40 bg-yellow-950/30 p-5">
-              <p className="text-sm font-semibold uppercase tracking-wider text-yellow-300">
-                Resultado
-              </p>
-
-              <h2 className="mt-2 text-3xl font-bold">
-                {totalCorrectas} de {preguntas.length} correctas —{" "}
-                {calificacion}%
-              </h2>
-
-              <p className="mt-2 text-slate-300">
-                Tiempo usado: {formatearTiempo(obtenerTiempoUsado())}
-              </p>
-
-              <p className="mt-2 text-sm text-slate-400">
-                {guardandoResultado
-                  ? "Guardando resultado..."
-                  : resultadoGuardado
-                  ? "Resultado guardado correctamente."
-                  : "El resultado no se pudo guardar. Revisa la consola."}
-              </p>
-
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href={destinoVolver}
-                  className="rounded-xl bg-sky-500 px-5 py-3 text-center font-semibold text-slate-950 hover:bg-sky-400"
-                >
-                  Volver a la unidad
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={reiniciarParcial}
-                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800"
-                >
-                  Reintentar parcial
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+          <div className="absolute -bottom-12 left-80 h-40 w-40 rounded-full bg-white/10" />
         </header>
 
+        {mensajeAvance && !mostrarResultado && (
+          <div
+            className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm ${
+              avanceGuardadoReciente
+                ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                : "border-blue-100 bg-blue-50 text-blue-700"
+            }`}
+          >
+            {mensajeAvance}
+          </div>
+        )}
+
+        {mostrarResultado && (
+          <section className="mb-6 rounded-[2rem] border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-wider text-emerald-700">
+              Resultado
+            </p>
+
+            <h2 className="mt-2 text-3xl font-semibold text-slate-900">
+              {totalCorrectas} de {preguntas.length} correctas —{" "}
+              {calificacion}%
+            </h2>
+
+            <p className="mt-2 text-slate-600">
+              Tiempo usado: {formatearTiempo(obtenerTiempoUsado())}
+            </p>
+
+            <p className="mt-2 text-sm text-slate-500">
+              {guardandoResultado
+                ? "Guardando resultado..."
+                : resultadoGuardado
+                ? "Resultado guardado correctamente."
+                : "El resultado no se pudo guardar. Revisa la consola."}
+            </p>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={destinoVolver}
+                className="rounded-2xl bg-blue-600 px-5 py-3 text-center font-bold text-white hover:bg-blue-500"
+              >
+                Volver a la unidad
+              </Link>
+
+              <button
+                type="button"
+                onClick={reiniciarParcial}
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Reintentar parcial
+              </button>
+            </div>
+          </section>
+        )}
+
         {preguntas.length === 0 ? (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 sm:rounded-3xl sm:p-8">
-            <h2 className="text-2xl font-bold">
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <h2 className="text-2xl font-semibold text-slate-900">
               Este parcial todavía no tiene preguntas
             </h2>
 
-            <p className="mt-3 text-slate-400">
+            <p className="mt-3 text-slate-600">
               Agrega preguntas desde el panel de administración.
             </p>
 
             <Link
               href={destinoVolver}
-              className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
+              className="mt-6 inline-flex rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white hover:bg-blue-500"
             >
               Volver a la unidad
             </Link>
@@ -684,13 +900,29 @@ export default function ParcialAlumnoPage() {
                 return (
                   <article
                     key={pregunta.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:rounded-3xl sm:p-6"
+                    className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
                   >
-                    <p className="text-sm font-semibold text-blue-300">
-                      Pregunta {index + 1}
-                    </p>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-blue-600">
+                        Pregunta {index + 1}
+                      </p>
 
-                    <div className="mt-3">
+                      {mostrarResultado && (
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            respuestaAlumno === respuestaCorrecta
+                              ? "bg-emerald-600 text-white"
+                              : "bg-red-600 text-white"
+                          }`}
+                        >
+                          {respuestaAlumno === respuestaCorrecta
+                            ? "Correcta"
+                            : "Incorrecta"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <ContenidoPregunta html={pregunta.pregunta} />
                     </div>
 
@@ -700,19 +932,19 @@ export default function ParcialAlumnoPage() {
                         const esCorrecta = respuestaCorrecta === opcion.clave;
 
                         let clase =
-                          "border-slate-700 bg-slate-950 hover:bg-slate-800";
+                          "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50";
 
                         if (mostrarResultado && esCorrecta) {
                           clase =
-                            "border-green-600 bg-green-950 text-green-200";
+                            "border-emerald-300 bg-emerald-50 text-emerald-900";
                         } else if (
                           mostrarResultado &&
                           seleccionada &&
                           !esCorrecta
                         ) {
-                          clase = "border-red-600 bg-red-950 text-red-200";
+                          clase = "border-red-300 bg-red-50 text-red-900";
                         } else if (seleccionada) {
-                          clase = "border-blue-600 bg-blue-950 text-blue-100";
+                          clase = "border-blue-300 bg-blue-50 text-blue-900";
                         }
 
                         return (
@@ -722,9 +954,12 @@ export default function ParcialAlumnoPage() {
                             onClick={() =>
                               seleccionarRespuesta(idPregunta, opcion.clave)
                             }
-                            className={`w-full rounded-2xl border px-4 py-3 text-left transition ${clase}`}
+                            className={`w-full rounded-2xl border px-4 py-3 text-left shadow-sm transition ${clase}`}
                           >
-                            <p className="mb-2 font-bold">{opcion.clave})</p>
+                            <p className="mb-2 font-semibold">
+                              Opción {opcion.clave}
+                            </p>
+
                             <ContenidoPregunta html={opcion.html} />
                           </button>
                         );
@@ -732,12 +967,12 @@ export default function ParcialAlumnoPage() {
                     </div>
 
                     {mostrarResultado && pregunta.explicacion && (
-                      <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                        <p className="font-semibold text-yellow-300">
+                      <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <p className="font-semibold text-amber-800">
                           Explicación
                         </p>
 
-                        <p className="mt-2 text-slate-300">
+                        <p className="mt-2 text-slate-700">
                           {pregunta.explicacion}
                         </p>
                       </div>
@@ -747,63 +982,78 @@ export default function ParcialAlumnoPage() {
               })}
             </section>
 
-            <section className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-3xl sm:p-6">
+            <section className="mt-6 flex flex-col gap-3 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:mt-8 sm:p-6">
               {!mostrarResultado ? (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={volverAtras}
-                      className="rounded-xl border border-slate-700 px-5 py-3 text-center font-semibold text-white hover:bg-slate-800"
+                      className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-center font-bold text-slate-700 hover:bg-slate-50"
                     >
                       ← Volver atrás
                     </button>
 
                     <button
                       type="button"
-                      onClick={guardarAvanceLocal}
-                      className={`rounded-xl px-5 py-3 text-center font-semibold transition ${
-                        avanceGuardadoReciente
-                          ? "border border-green-500 bg-green-500 text-slate-950"
-                          : "border border-sky-700 text-sky-300 hover:bg-sky-950"
-                      }`}
-                    >
-                      {avanceGuardadoReciente
-                        ? "Avance guardado ✓"
-                        : "Guardar avance"}
-                    </button>
-
-                    <button
-                      type="button"
                       onClick={() => terminarParcial(false)}
-                      className="rounded-xl bg-yellow-500 px-5 py-3 font-bold text-slate-950 hover:bg-yellow-400"
+                      className="rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white hover:bg-blue-500"
                     >
                       Terminar parcial
                     </button>
                   </div>
 
-                  {mensajeAvance && !mostrarResultado && (
-                    <div
-                      className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
-                        avanceGuardadoReciente
-                          ? "border-green-500 bg-green-950 text-green-200"
-                          : "border-sky-600 bg-sky-950 text-sky-200"
-                      }`}
-                    >
-                      {mensajeAvance}
+                  <p className="text-xs leading-5 text-slate-500">
+                    Si sales del parcial, la plataforma te preguntará si deseas
+                    guardar tu avance antes de abandonar la pantalla.
+                  </p>
+
+                  {mostrarDialogoSalida && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm">
+                      <div className="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white p-6 shadow-2xl">
+                        <h2 className="text-xl font-semibold text-slate-900">
+                          Salir del parcial
+                        </h2>
+
+                        <p className="mt-3 text-slate-600">
+                          Si sales ahora, puedes guardar tus respuestas para
+                          continuar después o salir sin guardar este avance.
+                        </p>
+
+                        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => confirmarSalida(false)}
+                            className="rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white hover:bg-blue-500"
+                          >
+                            Guardar y salir
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => confirmarSalida(true)}
+                            className="rounded-2xl bg-amber-500 px-5 py-3 font-bold text-slate-950 hover:bg-amber-400"
+                          >
+                            Salir sin guardar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={cancelarSalida}
+                            className="rounded-2xl border border-slate-200 bg-white px-5 py-3 font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            Continuar aquí
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
-
-                  <p className="text-xs leading-5 text-slate-400">
-                    Guardar avance conserva tus respuestas en este dispositivo.
-                    El resultado final solo se guarda al terminar el parcial.
-                  </p>
                 </>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Link
                     href={destinoVolver}
-                    className="rounded-xl bg-sky-500 px-5 py-3 text-center font-semibold text-slate-950 hover:bg-sky-400"
+                    className="rounded-2xl bg-blue-600 px-5 py-3 text-center font-bold text-white hover:bg-blue-500"
                   >
                     Volver a la unidad
                   </Link>
@@ -811,7 +1061,7 @@ export default function ParcialAlumnoPage() {
                   <button
                     type="button"
                     onClick={reiniciarParcial}
-                    className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500"
+                    className="rounded-2xl border border-slate-200 bg-white px-5 py-3 font-bold text-slate-700 hover:bg-slate-50"
                   >
                     Reintentar parcial
                   </button>
@@ -834,19 +1084,44 @@ export default function ParcialAlumnoPage() {
           height: auto;
           border-radius: 12px;
           margin: 12px 0;
-          border: 1px solid #334155;
+          border: 1px solid #e2e8f0;
           display: block;
+          background: white;
+        }
+
+        .prose-exam h1,
+        .prose-exam h2,
+        .prose-exam h3 {
+          color: #0f172a;
+          font-weight: 600;
+          margin: 0.5rem 0;
         }
 
         .prose-exam h2 {
           font-size: 1.5rem;
-          font-weight: 800;
+        }
+
+        .prose-exam p {
+          margin: 0.35rem 0;
+        }
+
+        .prose-exam ul,
+        .prose-exam ol {
+          padding-left: 1.4rem;
           margin: 0.5rem 0;
         }
 
         .prose-exam ul {
           list-style: disc;
-          padding-left: 1.5rem;
+        }
+
+        .prose-exam ol {
+          list-style: decimal;
+        }
+
+        .prose-exam strong,
+        .prose-exam b {
+          font-weight: 600;
         }
 
         .prose-exam font[size="4"] {

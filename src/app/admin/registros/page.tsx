@@ -489,7 +489,7 @@ export default function AdminRegistrosPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-2xl font-bold">
-                Registros de alumnos UABC
+                Registros de alumnos UNIMED
               </h1>
               <p className="mt-1 text-sm text-slate-300">
                 Revisa solicitudes, aprueba accesos, suspende alumnos y edita
@@ -852,7 +852,7 @@ function crearMensajeWhatsApp(
   if (tipo === "aprobado") {
     return `Hola, ${alumno.nombre_completo}.
 
-Tu acceso a la plataforma del curso de admisión UABC ha sido aprobado.
+Tu acceso a la plataforma del curso UNIMED para examen de admisión a UABC ha sido aprobado.
 
 Ya puedes ingresar con el correo y contraseña que registraste.
 
@@ -865,7 +865,7 @@ Si tienes algún problema para entrar, comunícate con administración.`;
   if (tipo === "reactivado") {
     return `Hola, ${alumno.nombre_completo}.
 
-Tu acceso a la plataforma del curso de admisión UABC ha sido reactivado.
+Tu acceso a la plataforma del curso UNIMED para examen de admisión a UABC ha sido reactivado.
 
 Ya puedes ingresar nuevamente con tu correo y contraseña registrados.
 
@@ -878,7 +878,7 @@ Si tienes algún problema para entrar, comunícate con administración.`;
   if (tipo === "rechazado") {
     return `Hola, ${alumno.nombre_completo}.
 
-Te informamos que tu registro para la plataforma del curso de admisión UABC no fue aprobado por el momento.
+Te informamos que tu registro para la plataforma del curso UNIMED para examen de admisión a UABC no fue aprobado por el momento.
 
 Si consideras que hubo un error o necesitas más información, comunícate con administración.
 
@@ -887,7 +887,7 @@ Gracias por tu comprensión.`;
 
   return `Hola, ${alumno.nombre_completo}.
 
-Te informamos que tu acceso a la plataforma del curso de admisión UABC ha sido suspendido temporalmente.
+Te informamos que tu acceso a la plataforma del curso UNIMED para examen de admisión a UABC ha sido suspendido temporalmente.
 
 Tus datos, avances y resultados no se eliminarán.
 

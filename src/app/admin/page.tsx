@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import AdminProtegido from "@/components/AdminProtegido";
 
 type Registro = {
   id: string | number;
@@ -37,6 +38,15 @@ const TABLA_TEMAS = "temas";
 const TABLA_SUBTEMAS = "subtemas";
 const TABLA_PARCIALES = "parciales";
 const TABLA_SIMULADORES = "simuladores";
+
+const secciones: { id: Seccion; texto: string }[] = [
+  { id: "solicitudes", texto: "Solicitudes alumnos" },
+  { id: "materias", texto: "Materias" },
+  { id: "temas", texto: "Temas / unidades" },
+  { id: "subtemas", texto: "Subtemas" },
+  { id: "parciales", texto: "Parciales" },
+  { id: "simuladores", texto: "Simuladores" },
+];
 
 export default function AdminPage() {
   const [seccion, setSeccion] = useState<Seccion>("solicitudes");
@@ -135,7 +145,14 @@ export default function AdminPage() {
 
   function siguienteOrden(lista: Registro[]) {
     if (lista.length === 0) return 1;
-    return Math.max(...lista.map((item) => Number(item.orden ?? 0))) + 1;
+
+    const ordenesValidos = lista
+      .map((item) => Number(item.orden ?? 0))
+      .filter((numero) => Number.isFinite(numero));
+
+    if (ordenesValidos.length === 0) return 1;
+
+    return Math.max(...ordenesValidos) + 1;
   }
 
   async function consultarConFallback(
@@ -819,226 +836,185 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
-          <p className="text-sm uppercase tracking-[0.35em] text-blue-300">
-            Admin
-          </p>
+    <AdminProtegido>
+      <main className="min-h-[calc(100vh-96px)] bg-[#f6f8fc] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <section className="mb-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+            <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 p-7 text-white sm:p-8">
+              <div className="relative z-10 max-w-3xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
+                  Admin
+                </p>
 
-          <h1 className="mt-3 text-4xl font-bold">
-            Panel de administración
-          </h1>
+                <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                  Panel de administración
+                </h1>
 
-          <p className="mt-3 max-w-3xl text-slate-400">
-            Edita materias, temas, subtemas, parciales y simuladores. También
-            puedes modificar el orden, abrir vista previa y administrar
-            preguntas.
-          </p>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-blue-50 sm:text-base">
+                  Edita materias, temas, subtemas, parciales y simuladores.
+                  También puedes modificar el orden, abrir vista previa y
+                  administrar preguntas.
+                </p>
+              </div>
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            {[
-              ["solicitudes", "Solicitudes alumnos"],
-              ["materias", "Materias"],
-              ["temas", "Temas / unidades"],
-              ["subtemas", "Subtemas"],
-              ["parciales", "Parciales"],
-              ["simuladores", "Simuladores"],
-            ].map(([id, texto]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setSeccion(id as Seccion)}
-                className={`rounded-xl px-5 py-3 font-semibold transition ${
-                  seccion === id
-                    ? "bg-blue-600 text-white"
-                    : "border border-slate-700 text-slate-300 hover:bg-slate-800"
-                }`}
-              >
-                {texto}
-              </button>
-            ))}
-          </div>
-        </header>
-
-        {cargando && (
-          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 text-slate-300">
-            Cargando...
-          </div>
-        )}
-
-        {seccion === "solicitudes" && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
-            <p className="text-sm uppercase tracking-[0.35em] text-sky-300">
-              Solicitudes de alumnos
-            </p>
-
-            <h2 className="mt-3 text-3xl font-bold">
-              Aprobar registros y accesos
-            </h2>
-
-            <p className="mt-3 max-w-3xl text-slate-400">
-              En esta sección puedes revisar alumnos registrados, aprobar su
-              acceso, suspenderlos, reactivarlos, rechazarlos, asignar sede,
-              grupo y agregar observaciones internas.
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-4">
-              <Link
-                href="/admin/registros"
-                className="rounded-2xl bg-sky-500 px-5 py-3 font-semibold text-slate-950 hover:bg-sky-400"
-              >
-                Revisar solicitudes de alumnos
-              </Link>
-
-              <Link
-                href="/resultados"
-                className="rounded-2xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800"
-              >
-                Ver resultados
-              </Link>
+              <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+              <div className="absolute -bottom-12 left-80 h-40 w-40 rounded-full bg-white/10" />
+              <div className="absolute right-16 top-10 h-8 w-8 rotate-12 rounded-xl bg-emerald-300/50" />
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <p className="text-sm text-slate-400">Pendientes</p>
-                <h3 className="mt-2 text-xl font-bold text-yellow-300">
-                  Revisar nuevos registros
-                </h3>
-                <p className="mt-2 text-sm text-slate-400">
-                  Entra a solicitudes para validar alumnos que aún no tienen
-                  acceso.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <p className="text-sm text-slate-400">Acceso</p>
-                <h3 className="mt-2 text-xl font-bold text-green-300">
-                  Aprobar o suspender
-                </h3>
-                <p className="mt-2 text-sm text-slate-400">
-                  Puedes activar, suspender o reactivar el acceso sin borrar los
-                  datos del alumno.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <p className="text-sm text-slate-400">Avisos</p>
-                <h3 className="mt-2 text-xl font-bold text-blue-300">
-                  Mensajes por WhatsApp
-                </h3>
-                <p className="mt-2 text-sm text-slate-400">
-                  Al aprobar, suspender, reactivar o rechazar se genera el
-                  mensaje para avisar al alumno.
-                </p>
+            <div className="border-t border-slate-100 bg-white p-4 sm:p-5">
+              <div className="flex flex-wrap gap-2">
+                {secciones.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSeccion(item.id)}
+                    className={`rounded-2xl border px-4 py-2.5 text-sm font-semibold transition ${
+                      seccion === item.id
+                        ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                    }`}
+                  >
+                    {item.texto}
+                  </button>
+                ))}
               </div>
             </div>
           </section>
-        )}
 
-        {seccion === "materias" && (
-          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-xl font-bold">
-                {materiaEditandoId ? "Editar materia" : "Crear materia"}
+          {cargando && (
+            <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 p-5 text-sm font-semibold text-blue-700">
+              Cargando...
+            </div>
+          )}
+
+          {seccion === "solicitudes" && (
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
+                Solicitudes de alumnos
+              </p>
+
+              <h2 className="mt-3 text-3xl font-semibold text-slate-950">
+                Aprobar registros y accesos
               </h2>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Nombre de la materia
-                  </label>
-                  <input
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
+                En esta sección puedes revisar alumnos registrados, aprobar su
+                acceso, suspenderlos, reactivarlos, rechazarlos, asignar sede,
+                grupo y agregar observaciones internas.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/admin/registros"
+                  className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+                >
+                  Revisar solicitudes de alumnos
+                </Link>
+              </div>
+
+              <div className="mt-8 grid gap-4 md:grid-cols-3">
+                <InfoAdminCard
+                  titulo="Pendientes"
+                  subtitulo="Revisar nuevos registros"
+                  texto="Entra a solicitudes para validar alumnos que aún no tienen acceso."
+                  color="amber"
+                />
+
+                <InfoAdminCard
+                  titulo="Acceso"
+                  subtitulo="Aprobar o suspender"
+                  texto="Puedes activar, suspender o reactivar el acceso sin borrar los datos del alumno."
+                  color="emerald"
+                />
+
+                <InfoAdminCard
+                  titulo="Avisos"
+                  subtitulo="Mensajes por WhatsApp"
+                  texto="Al aprobar, suspender, reactivar o rechazar se genera el mensaje para avisar al alumno."
+                  color="blue"
+                />
+              </div>
+            </section>
+          )}
+
+          {seccion === "materias" && (
+            <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-xl font-semibold text-slate-950">
+                  {materiaEditandoId ? "Editar materia" : "Crear materia"}
+                </h2>
+
+                <div className="space-y-4">
+                  <CampoInput
+                    label="Nombre de la materia"
                     value={materiaTitulo}
-                    onChange={(e) => setMateriaTitulo(e.target.value)}
+                    onChange={setMateriaTitulo}
                     placeholder="Ejemplo: Comprensión lectora"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Descripción
-                  </label>
-                  <textarea
+                  <CampoTextarea
+                    label="Descripción"
                     value={materiaDescripcion}
-                    onChange={(e) => setMateriaDescripcion(e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setMateriaDescripcion}
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Orden
-                  </label>
-                  <input
+                  <CampoInput
+                    label="Orden"
                     type="number"
                     min="1"
                     value={materiaOrden}
-                    onChange={(e) => setMateriaOrden(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setMateriaOrden}
                   />
-                </div>
 
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={guardarMateria}
-                    disabled={guardando}
-                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    {guardando
-                      ? "Guardando..."
-                      : materiaEditandoId
-                      ? "Guardar cambios"
-                      : "Crear materia"}
-                  </button>
-
-                  {materiaEditandoId && (
+                  <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={limpiarMateria}
-                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                      onClick={guardarMateria}
+                      disabled={guardando}
+                      className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
                     >
-                      Cancelar
+                      {guardando
+                        ? "Guardando..."
+                        : materiaEditandoId
+                        ? "Guardar cambios"
+                        : "Crear materia"}
                     </button>
-                  )}
+
+                    {materiaEditandoId && (
+                      <button
+                        type="button"
+                        onClick={limpiarMateria}
+                        className="rounded-2xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-2xl font-bold">
-                Materias registradas
-              </h2>
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-2xl font-semibold text-slate-950">
+                  Materias registradas
+                </h2>
 
-              <div className="space-y-4">
-                {materias.map((materia, index) => (
-                  <article
-                    key={materia.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <p className="text-sm text-slate-500">
-                          Orden: {materia.orden ?? "Sin orden"}
-                        </p>
+                <div className="space-y-4">
+                  {materias.map((materia, index) => (
+                    <article
+                      key={materia.id}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                    >
+                      <RegistroHeader
+                        orden={materia.orden}
+                        titulo={obtenerTitulo(materia)}
+                        descripcion={obtenerDescripcion(materia)}
+                      />
 
-                        <h3 className="mt-1 text-2xl font-bold">
-                          {obtenerTitulo(materia)}
-                        </h3>
-
-                        {obtenerDescripcion(materia) && (
-                          <p className="mt-2 text-slate-400">
-                            {obtenerDescripcion(materia)}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <BotonOrden
+                          texto="↑"
+                          disabled={index === 0}
                           onClick={() =>
                             moverOrden(
                               TABLA_MATERIAS,
@@ -1048,14 +1024,11 @@ export default function AdminPage() {
                               cargarMaterias
                             )
                           }
-                          disabled={index === 0}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↑
-                        </button>
+                        />
 
-                        <button
-                          type="button"
+                        <BotonOrden
+                          texto="↓"
+                          disabled={index === materias.length - 1}
                           onClick={() =>
                             moverOrden(
                               TABLA_MATERIAS,
@@ -1065,173 +1038,119 @@ export default function AdminPage() {
                               cargarMaterias
                             )
                           }
-                          disabled={index === materias.length - 1}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↓
-                        </button>
+                        />
 
-                        <Link
-                          href={`/materias/${materia.id}`}
-                          target="_blank"
-                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
-                        >
+                        <BotonLink href={`/materias/${materia.id}`} target>
                           Vista alumno
-                        </Link>
+                        </BotonLink>
 
-                        <button
-                          type="button"
-                          onClick={() => editarMateria(materia)}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
-                        >
+                        <BotonSecundario onClick={() => editarMateria(materia)}>
                           Editar
-                        </button>
+                        </BotonSecundario>
 
-                        <button
-                          type="button"
+                        <BotonPeligro
                           onClick={() => eliminarMateria(materia.id)}
-                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
                         >
                           Eliminar
-                        </button>
+                        </BotonPeligro>
                       </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
 
-        {seccion === "temas" && (
-          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-xl font-bold">
-                {temaEditandoId ? "Editar tema/unidad" : "Crear tema/unidad"}
-              </h2>
+          {seccion === "temas" && (
+            <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-xl font-semibold text-slate-950">
+                  {temaEditandoId ? "Editar tema/unidad" : "Crear tema/unidad"}
+                </h2>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Materia
-                  </label>
-                  <select
+                <div className="space-y-4">
+                  <CampoSelect
+                    label="Materia"
                     value={temaMateriaId}
-                    onChange={(e) =>
-                      seleccionarMateriaParaTemas(e.target.value)
-                    }
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-                  >
-                    <option value="">Selecciona una materia</option>
-                    {materias.map((materia) => (
-                      <option key={materia.id} value={materia.id}>
-                        {obtenerTitulo(materia)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    onChange={seleccionarMateriaParaTemas}
+                    placeholder="Selecciona una materia"
+                    opciones={materias}
+                    obtenerTexto={obtenerTitulo}
+                  />
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Nombre del tema/unidad
-                  </label>
-                  <input
+                  <CampoInput
+                    label="Nombre del tema/unidad"
                     value={temaTitulo}
-                    onChange={(e) => setTemaTitulo(e.target.value)}
+                    onChange={setTemaTitulo}
                     placeholder="Ejemplo: Idea principal"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Descripción
-                  </label>
-                  <textarea
+                  <CampoTextarea
+                    label="Descripción"
                     value={temaDescripcion}
-                    onChange={(e) => setTemaDescripcion(e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setTemaDescripcion}
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Orden
-                  </label>
-                  <input
+                  <CampoInput
+                    label="Orden"
                     type="number"
                     min="1"
                     value={temaOrden}
-                    onChange={(e) => setTemaOrden(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setTemaOrden}
                   />
-                </div>
 
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={guardarTema}
-                    disabled={guardando || !temaMateriaId}
-                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    {guardando
-                      ? "Guardando..."
-                      : temaEditandoId
-                      ? "Guardar cambios"
-                      : "Crear tema"}
-                  </button>
-
-                  {temaEditandoId && (
+                  <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={limpiarTema}
-                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                      onClick={guardarTema}
+                      disabled={guardando || !temaMateriaId}
+                      className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
                     >
-                      Cancelar
+                      {guardando
+                        ? "Guardando..."
+                        : temaEditandoId
+                        ? "Guardar cambios"
+                        : "Crear tema"}
                     </button>
-                  )}
+
+                    {temaEditandoId && (
+                      <button
+                        type="button"
+                        onClick={limpiarTema}
+                        className="rounded-2xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-2xl font-bold">
-                Temas de la materia
-              </h2>
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-2xl font-semibold text-slate-950">
+                  Temas de la materia
+                </h2>
 
-              {!temaMateriaId && (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                  Selecciona una materia para ver sus temas.
-                </div>
-              )}
+                {!temaMateriaId && (
+                  <AvisoVacio texto="Selecciona una materia para ver sus temas." />
+                )}
 
-              <div className="space-y-4">
-                {temas.map((tema, index) => (
-                  <article
-                    key={tema.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <p className="text-sm text-slate-500">
-                          Orden: {tema.orden ?? "Sin orden"}
-                        </p>
+                <div className="space-y-4">
+                  {temas.map((tema, index) => (
+                    <article
+                      key={tema.id}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                    >
+                      <RegistroHeader
+                        orden={tema.orden}
+                        titulo={obtenerTitulo(tema)}
+                        descripcion={obtenerDescripcion(tema)}
+                      />
 
-                        <h3 className="mt-1 text-2xl font-bold">
-                          {obtenerTitulo(tema)}
-                        </h3>
-
-                        {obtenerDescripcion(tema) && (
-                          <p className="mt-2 text-slate-400">
-                            {obtenerDescripcion(tema)}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <BotonOrden
+                          texto="↑"
+                          disabled={index === 0}
                           onClick={() =>
                             moverOrden(
                               TABLA_TEMAS,
@@ -1248,14 +1167,11 @@ export default function AdminPage() {
                               }
                             )
                           }
-                          disabled={index === 0}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↑
-                        </button>
+                        />
 
-                        <button
-                          type="button"
+                        <BotonOrden
+                          texto="↓"
+                          disabled={index === temas.length - 1}
                           onClick={() =>
                             moverOrden(
                               TABLA_TEMAS,
@@ -1272,198 +1188,134 @@ export default function AdminPage() {
                               }
                             )
                           }
-                          disabled={index === temas.length - 1}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↓
-                        </button>
+                        />
 
-                        <Link
+                        <BotonLink
                           href={
                             temaMateriaId
                               ? `/materias/${temaMateriaId}`
                               : "/materias"
                           }
-                          target="_blank"
-                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
+                          target
                         >
                           Vista alumno
-                        </Link>
+                        </BotonLink>
 
-                        <button
-                          type="button"
-                          onClick={() => editarTema(tema)}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
-                        >
+                        <BotonSecundario onClick={() => editarTema(tema)}>
                           Editar
-                        </button>
+                        </BotonSecundario>
 
-                        <button
-                          type="button"
-                          onClick={() => eliminarTema(tema.id)}
-                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
-                        >
+                        <BotonPeligro onClick={() => eliminarTema(tema.id)}>
                           Eliminar
-                        </button>
+                        </BotonPeligro>
                       </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
 
-        {seccion === "subtemas" && (
-          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-xl font-bold">
-                {subtemaEditandoId ? "Editar subtema" : "Crear subtema"}
-              </h2>
+          {seccion === "subtemas" && (
+            <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-xl font-semibold text-slate-950">
+                  {subtemaEditandoId ? "Editar subtema" : "Crear subtema"}
+                </h2>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Materia
-                  </label>
-                  <select
+                <div className="space-y-4">
+                  <CampoSelect
+                    label="Materia"
                     value={subtemaMateriaId}
-                    onChange={(e) =>
-                      seleccionarMateriaParaSubtemas(e.target.value)
-                    }
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-                  >
-                    <option value="">Selecciona una materia</option>
-                    {materias.map((materia) => (
-                      <option key={materia.id} value={materia.id}>
-                        {obtenerTitulo(materia)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    onChange={seleccionarMateriaParaSubtemas}
+                    placeholder="Selecciona una materia"
+                    opciones={materias}
+                    obtenerTexto={obtenerTitulo}
+                  />
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Tema / unidad
-                  </label>
-                  <select
+                  <CampoSelect
+                    label="Tema / unidad"
                     value={subtemaTemaId}
-                    onChange={(e) =>
-                      seleccionarTemaParaSubtemas(e.target.value)
-                    }
+                    onChange={seleccionarTemaParaSubtemas}
+                    placeholder="Selecciona un tema/unidad"
+                    opciones={temasParaSubtemas}
+                    obtenerTexto={obtenerTitulo}
                     disabled={!subtemaMateriaId}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
-                  >
-                    <option value="">Selecciona un tema/unidad</option>
-                    {temasParaSubtemas.map((tema) => (
-                      <option key={tema.id} value={tema.id}>
-                        {obtenerTitulo(tema)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  />
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Nombre del subtema
-                  </label>
-                  <input
+                  <CampoInput
+                    label="Nombre del subtema"
                     value={subtemaTitulo}
-                    onChange={(e) => setSubtemaTitulo(e.target.value)}
+                    onChange={setSubtemaTitulo}
                     placeholder="Ejemplo: Idea principal explícita"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Descripción
-                  </label>
-                  <textarea
+                  <CampoTextarea
+                    label="Descripción"
                     value={subtemaDescripcion}
-                    onChange={(e) => setSubtemaDescripcion(e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setSubtemaDescripcion}
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Orden
-                  </label>
-                  <input
+                  <CampoInput
+                    label="Orden"
                     type="number"
                     min="1"
                     value={subtemaOrden}
-                    onChange={(e) => setSubtemaOrden(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setSubtemaOrden}
                   />
-                </div>
 
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={guardarSubtema}
-                    disabled={guardando || !subtemaTemaId}
-                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    {guardando
-                      ? "Guardando..."
-                      : subtemaEditandoId
-                      ? "Guardar cambios"
-                      : "Crear subtema"}
-                  </button>
-
-                  {subtemaEditandoId && (
+                  <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={limpiarSubtema}
-                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                      onClick={guardarSubtema}
+                      disabled={guardando || !subtemaTemaId}
+                      className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
                     >
-                      Cancelar
+                      {guardando
+                        ? "Guardando..."
+                        : subtemaEditandoId
+                        ? "Guardar cambios"
+                        : "Crear subtema"}
                     </button>
-                  )}
+
+                    {subtemaEditandoId && (
+                      <button
+                        type="button"
+                        onClick={limpiarSubtema}
+                        className="rounded-2xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-2xl font-bold">
-                Subtemas del tema
-              </h2>
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-2xl font-semibold text-slate-950">
+                  Subtemas del tema
+                </h2>
 
-              {!subtemaTemaId && (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                  Selecciona una materia y un tema para ver sus subtemas.
-                </div>
-              )}
+                {!subtemaTemaId && (
+                  <AvisoVacio texto="Selecciona una materia y un tema para ver sus subtemas." />
+                )}
 
-              <div className="space-y-4">
-                {subtemas.map((subtema, index) => (
-                  <article
-                    key={subtema.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <p className="text-sm text-slate-500">
-                          Orden: {subtema.orden ?? "Sin orden"}
-                        </p>
+                <div className="space-y-4">
+                  {subtemas.map((subtema, index) => (
+                    <article
+                      key={subtema.id}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                    >
+                      <RegistroHeader
+                        orden={subtema.orden}
+                        titulo={obtenerTitulo(subtema)}
+                        descripcion={obtenerDescripcion(subtema)}
+                      />
 
-                        <h3 className="mt-1 text-2xl font-bold">
-                          {obtenerTitulo(subtema)}
-                        </h3>
-
-                        {obtenerDescripcion(subtema) && (
-                          <p className="mt-2 text-slate-400">
-                            {obtenerDescripcion(subtema)}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <BotonOrden
+                          texto="↑"
+                          disabled={index === 0}
                           onClick={() =>
                             moverOrden(
                               TABLA_SUBTEMAS,
@@ -1480,14 +1332,11 @@ export default function AdminPage() {
                               }
                             )
                           }
-                          disabled={index === 0}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↑
-                        </button>
+                        />
 
-                        <button
-                          type="button"
+                        <BotonOrden
+                          texto="↓"
+                          disabled={index === subtemas.length - 1}
                           onClick={() =>
                             moverOrden(
                               TABLA_SUBTEMAS,
@@ -1504,212 +1353,154 @@ export default function AdminPage() {
                               }
                             )
                           }
-                          disabled={index === subtemas.length - 1}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↓
-                        </button>
+                        />
 
-                        <Link
+                        <BotonLink
                           href={`/admin/contenido-subtemas?materia=${subtemaMateriaId}&tema=${subtemaTemaId}&subtema=${subtema.id}`}
-                          className="rounded-lg border border-cyan-700 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-950"
+                          color="cyan"
                         >
                           Administrar contenido
-                        </Link>
+                        </BotonLink>
 
-                        <Link
+                        <BotonLink
                           href={
                             subtemaMateriaId
                               ? `/materias/${subtemaMateriaId}`
                               : "/materias"
                           }
-                          target="_blank"
-                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
+                          target
                         >
                           Vista alumno
-                        </Link>
+                        </BotonLink>
 
-                        <button
-                          type="button"
-                          onClick={() => editarSubtema(subtema)}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
-                        >
+                        <BotonSecundario onClick={() => editarSubtema(subtema)}>
                           Editar
-                        </button>
+                        </BotonSecundario>
 
-                        <button
-                          type="button"
+                        <BotonPeligro
                           onClick={() => eliminarSubtema(subtema.id)}
-                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
                         >
                           Eliminar
-                        </button>
+                        </BotonPeligro>
                       </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
 
-        {seccion === "parciales" && (
-          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-xl font-bold">
-                {parcialEditandoId ? "Editar parcial" : "Crear parcial"}
-              </h2>
+          {seccion === "parciales" && (
+            <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-xl font-semibold text-slate-950">
+                  {parcialEditandoId ? "Editar parcial" : "Crear parcial"}
+                </h2>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Materia
-                  </label>
-                  <select
+                <div className="space-y-4">
+                  <CampoSelect
+                    label="Materia"
                     value={parcialMateriaId}
-                    onChange={(e) =>
-                      seleccionarMateriaParaParciales(e.target.value)
-                    }
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-                  >
-                    <option value="">Selecciona una materia</option>
-                    {materias.map((materia) => (
-                      <option key={materia.id} value={materia.id}>
-                        {obtenerTitulo(materia)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    onChange={seleccionarMateriaParaParciales}
+                    placeholder="Selecciona una materia"
+                    opciones={materias}
+                    obtenerTexto={obtenerTitulo}
+                  />
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Unidad / tema
-                  </label>
-                  <select
+                  <CampoSelect
+                    label="Unidad / tema"
                     value={parcialTemaId}
-                    onChange={(e) =>
-                      seleccionarTemaParaParciales(e.target.value)
-                    }
+                    onChange={seleccionarTemaParaParciales}
+                    placeholder="Selecciona una unidad/tema"
+                    opciones={temasParaParciales}
+                    obtenerTexto={obtenerTitulo}
                     disabled={!parcialMateriaId}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
-                  >
-                    <option value="">Selecciona una unidad/tema</option>
-                    {temasParaParciales.map((tema) => (
-                      <option key={tema.id} value={tema.id}>
-                        {obtenerTitulo(tema)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  />
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Nombre del parcial
-                  </label>
-                  <input
+                  <CampoInput
+                    label="Nombre del parcial"
                     value={parcialTitulo}
-                    onChange={(e) => setParcialTitulo(e.target.value)}
+                    onChange={setParcialTitulo}
                     placeholder="Ejemplo: Parcial de idea principal"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Descripción
-                  </label>
-                  <textarea
+                  <CampoTextarea
+                    label="Descripción"
                     value={parcialDescripcion}
-                    onChange={(e) => setParcialDescripcion(e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setParcialDescripcion}
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Orden
-                  </label>
-                  <input
+                  <CampoInput
+                    label="Orden"
                     type="number"
                     min="1"
                     value={parcialOrden}
-                    onChange={(e) => setParcialOrden(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setParcialOrden}
                   />
-                </div>
 
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={guardarParcial}
-                    disabled={guardando || !parcialTemaId}
-                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    {guardando
-                      ? "Guardando..."
-                      : parcialEditandoId
-                      ? "Guardar cambios"
-                      : "Crear parcial"}
-                  </button>
-
-                  {parcialEditandoId && (
+                  <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={limpiarParcial}
-                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                      onClick={guardarParcial}
+                      disabled={guardando || !parcialTemaId}
+                      className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
                     >
-                      Cancelar
+                      {guardando
+                        ? "Guardando..."
+                        : parcialEditandoId
+                        ? "Guardar cambios"
+                        : "Crear parcial"}
                     </button>
-                  )}
-                </div>
 
-                <Link
-                  href="/admin/preguntas-parciales"
-                  className="inline-flex rounded-xl border border-yellow-700 px-4 py-3 font-semibold text-yellow-300 hover:bg-yellow-950"
-                >
-                  Administrar preguntas →
-                </Link>
-              </div>
-            </section>
+                    {parcialEditandoId && (
+                      <button
+                        type="button"
+                        onClick={limpiarParcial}
+                        className="rounded-2xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-2xl font-bold">
-                Parciales de la unidad
-              </h2>
-
-              {!parcialTemaId && (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                  Selecciona una materia y unidad para ver sus parciales.
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {parciales.map((parcial, index) => (
-                  <article
-                    key={parcial.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  <BotonLink
+                    href={
+                      parcialMateriaId && parcialTemaId
+                        ? `/admin/preguntas-parciales?materia=${parcialMateriaId}&tema=${parcialTemaId}`
+                        : "/admin/preguntas-parciales"
+                    }
+                    color="amber"
                   >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <p className="text-sm text-slate-500">
-                          Orden: {parcial.orden ?? "Sin orden"}
-                        </p>
+                    Administrar preguntas →
+                  </BotonLink>
+                </div>
+              </section>
 
-                        <h3 className="mt-1 text-2xl font-bold">
-                          {obtenerTitulo(parcial)}
-                        </h3>
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-2xl font-semibold text-slate-950">
+                  Parciales de la unidad
+                </h2>
 
-                        {obtenerDescripcion(parcial) && (
-                          <p className="mt-2 text-slate-400">
-                            {obtenerDescripcion(parcial)}
-                          </p>
-                        )}
-                      </div>
+                {!parcialTemaId && (
+                  <AvisoVacio texto="Selecciona una materia y unidad para ver sus parciales." />
+                )}
 
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                <div className="space-y-4">
+                  {parciales.map((parcial, index) => (
+                    <article
+                      key={parcial.id}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                    >
+                      <RegistroHeader
+                        orden={parcial.orden}
+                        titulo={obtenerTitulo(parcial)}
+                        descripcion={obtenerDescripcion(parcial)}
+                      />
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <BotonOrden
+                          texto="↑"
+                          disabled={index === 0}
                           onClick={() =>
                             moverOrden(
                               TABLA_PARCIALES,
@@ -1726,14 +1517,11 @@ export default function AdminPage() {
                               }
                             )
                           }
-                          disabled={index === 0}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↑
-                        </button>
+                        />
 
-                        <button
-                          type="button"
+                        <BotonOrden
+                          texto="↓"
+                          disabled={index === parciales.length - 1}
                           onClick={() =>
                             moverOrden(
                               TABLA_PARCIALES,
@@ -1750,169 +1538,123 @@ export default function AdminPage() {
                               }
                             )
                           }
-                          disabled={index === parciales.length - 1}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↓
-                        </button>
+                        />
 
-                        <Link
-                          href={`/parciales/${parcial.id}`}
-                          target="_blank"
-                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
-                        >
+                        <BotonLink href={`/parciales/${parcial.id}`} target>
                           Vista alumno
-                        </Link>
+                        </BotonLink>
 
-                        <Link
-                          href="/admin/preguntas-parciales"
-                          className="rounded-lg border border-yellow-700 px-3 py-2 text-sm font-semibold text-yellow-300 hover:bg-yellow-950"
+                        <BotonLink
+                          href={`/admin/preguntas-parciales?materia=${parcialMateriaId}&tema=${parcialTemaId}&parcial=${parcial.id}`}
+                          color="amber"
                         >
                           Preguntas
-                        </Link>
+                        </BotonLink>
 
-                        <button
-                          type="button"
-                          onClick={() => editarParcial(parcial)}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
-                        >
+                        <BotonSecundario onClick={() => editarParcial(parcial)}>
                           Editar
-                        </button>
+                        </BotonSecundario>
 
-                        <button
-                          type="button"
+                        <BotonPeligro
                           onClick={() => eliminarParcial(parcial.id)}
-                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
                         >
                           Eliminar
-                        </button>
+                        </BotonPeligro>
                       </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
 
-        {seccion === "simuladores" && (
-          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-xl font-bold">
-                {simuladorEditandoId
-                  ? "Editar simulador"
-                  : "Crear simulador"}
-              </h2>
+          {seccion === "simuladores" && (
+            <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-xl font-semibold text-slate-950">
+                  {simuladorEditandoId
+                    ? "Editar simulador"
+                    : "Crear simulador"}
+                </h2>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Nombre del simulador
-                  </label>
-                  <input
+                <div className="space-y-4">
+                  <CampoInput
+                    label="Nombre del simulador"
                     value={simuladorTitulo}
-                    onChange={(e) => setSimuladorTitulo(e.target.value)}
+                    onChange={setSimuladorTitulo}
                     placeholder="Ejemplo: Simulador general 1"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Descripción
-                  </label>
-                  <textarea
+                  <CampoTextarea
+                    label="Descripción"
                     value={simuladorDescripcion}
-                    onChange={(e) => setSimuladorDescripcion(e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setSimuladorDescripcion}
                   />
-                </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Orden
-                  </label>
-                  <input
+                  <CampoInput
+                    label="Orden"
                     type="number"
                     min="1"
                     value={simuladorOrden}
-                    onChange={(e) => setSimuladorOrden(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                    onChange={setSimuladorOrden}
                   />
-                </div>
 
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={guardarSimulador}
-                    disabled={guardando}
-                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    {guardando
-                      ? "Guardando..."
-                      : simuladorEditandoId
-                      ? "Guardar cambios"
-                      : "Crear simulador"}
-                  </button>
-
-                  {simuladorEditandoId && (
+                  <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={limpiarSimulador}
-                      className="rounded-xl border border-slate-700 px-4 py-3 font-semibold hover:bg-slate-800"
+                      onClick={guardarSimulador}
+                      disabled={guardando}
+                      className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
                     >
-                      Cancelar
+                      {guardando
+                        ? "Guardando..."
+                        : simuladorEditandoId
+                        ? "Guardar cambios"
+                        : "Crear simulador"}
                     </button>
-                  )}
+
+                    {simuladorEditandoId && (
+                      <button
+                        type="button"
+                        onClick={limpiarSimulador}
+                        className="rounded-2xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+
+                  <BotonLink href="/admin/preguntas-simuladores" color="cyan">
+                    Administrar preguntas →
+                  </BotonLink>
                 </div>
+              </section>
 
-                <Link
-                  href="/admin/preguntas-simuladores"
-                  className="inline-flex rounded-xl border border-cyan-700 px-4 py-3 font-semibold text-cyan-300 hover:bg-cyan-950"
-                >
-                  Administrar preguntas →
-                </Link>
-              </div>
-            </section>
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-5 text-2xl font-semibold text-slate-950">
+                  Simuladores registrados
+                </h2>
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-              <h2 className="mb-5 text-2xl font-bold">
-                Simuladores registrados
-              </h2>
+                {simuladores.length === 0 && (
+                  <AvisoVacio texto="Todavía no hay simuladores." />
+                )}
 
-              {simuladores.length === 0 && (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                  Todavía no hay simuladores.
-                </div>
-              )}
+                <div className="space-y-4">
+                  {simuladores.map((simulador, index) => (
+                    <article
+                      key={simulador.id}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                    >
+                      <RegistroHeader
+                        orden={simulador.orden}
+                        titulo={obtenerTitulo(simulador)}
+                        descripcion={obtenerDescripcion(simulador)}
+                      />
 
-              <div className="space-y-4">
-                {simuladores.map((simulador, index) => (
-                  <article
-                    key={simulador.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <p className="text-sm text-slate-500">
-                          Orden: {simulador.orden ?? "Sin orden"}
-                        </p>
-
-                        <h3 className="mt-1 text-2xl font-bold">
-                          {obtenerTitulo(simulador)}
-                        </h3>
-
-                        {obtenerDescripcion(simulador) && (
-                          <p className="mt-2 text-slate-400">
-                            {obtenerDescripcion(simulador)}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <BotonOrden
+                          texto="↑"
+                          disabled={index === 0}
                           onClick={() =>
                             moverOrden(
                               TABLA_SIMULADORES,
@@ -1922,14 +1664,11 @@ export default function AdminPage() {
                               cargarSimuladores
                             )
                           }
-                          disabled={index === 0}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↑
-                        </button>
+                        />
 
-                        <button
-                          type="button"
+                        <BotonOrden
+                          texto="↓"
+                          disabled={index === simuladores.length - 1}
                           onClick={() =>
                             moverOrden(
                               TABLA_SIMULADORES,
@@ -1939,65 +1678,298 @@ export default function AdminPage() {
                               cargarSimuladores
                             )
                           }
-                          disabled={index === simuladores.length - 1}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          ↓
-                        </button>
+                        />
 
-                        <Link
-                          href={`/simuladores/${simulador.id}`}
-                          target="_blank"
-                          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
-                        >
+                        <BotonLink href={`/simuladores/${simulador.id}`} target>
                           Vista alumno
-                        </Link>
+                        </BotonLink>
 
-                        <Link
+                        <BotonLink
                           href={`/admin/secciones-simuladores?simulador=${simulador.id}`}
-                          className="rounded-lg border border-purple-700 px-3 py-2 text-sm font-semibold text-purple-300 hover:bg-purple-950"
+                          color="purple"
                         >
                           Secciones
-                        </Link>
+                        </BotonLink>
 
-                        <Link
+                        <BotonLink
                           href={`/admin/instrucciones-simuladores?simulador=${simulador.id}`}
-                          className="rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-950"
+                          color="emerald"
                         >
                           Instrucciones
-                        </Link>
+                        </BotonLink>
 
-                        <Link
+                        <BotonLink
                           href={`/admin/preguntas-simuladores?simulador=${simulador.id}`}
-                          className="rounded-lg border border-cyan-700 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-950"
+                          color="cyan"
                         >
                           Preguntas
-                        </Link>
+                        </BotonLink>
 
-                        <button
-                          type="button"
+                        <BotonSecundario
                           onClick={() => editarSimulador(simulador)}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
                         >
                           Editar
-                        </button>
+                        </BotonSecundario>
 
-                        <button
-                          type="button"
+                        <BotonPeligro
                           onClick={() => eliminarSimulador(simulador.id)}
-                          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
                         >
                           Eliminar
-                        </button>
+                        </BotonPeligro>
                       </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
-      </div>
-    </main>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+        </div>
+      </main>
+    </AdminProtegido>
+  );
+}
+
+function CampoInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  min,
+}: {
+  label: string;
+  value: string;
+  onChange: (valor: string) => void;
+  placeholder?: string;
+  type?: string;
+  min?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-600">
+        {label}
+      </label>
+
+      <input
+        type={type}
+        min={min}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-400"
+      />
+    </div>
+  );
+}
+
+function CampoTextarea({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (valor: string) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-600">
+        {label}
+      </label>
+
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-400"
+      />
+    </div>
+  );
+}
+
+function CampoSelect({
+  label,
+  value,
+  onChange,
+  placeholder,
+  opciones,
+  obtenerTexto,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (valor: string) => void;
+  placeholder: string;
+  opciones: Registro[];
+  obtenerTexto: (item: Registro | null | undefined) => string;
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-600">
+        {label}
+      </label>
+
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <option value="">{placeholder}</option>
+
+        {opciones.map((opcion) => (
+          <option key={opcion.id} value={opcion.id}>
+            {obtenerTexto(opcion)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function RegistroHeader({
+  orden,
+  titulo,
+  descripcion,
+}: {
+  orden?: number;
+  titulo: string;
+  descripcion: string;
+}) {
+  return (
+    <div>
+      <p className="text-sm text-slate-500">Orden: {orden ?? "Sin orden"}</p>
+
+      <h3 className="mt-1 text-2xl font-semibold text-slate-950">{titulo}</h3>
+
+      {descripcion && (
+        <p className="mt-2 text-sm leading-6 text-slate-500">{descripcion}</p>
+      )}
+    </div>
+  );
+}
+
+function BotonOrden({
+  texto,
+  disabled,
+  onClick,
+}: {
+  texto: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {texto}
+    </button>
+  );
+}
+
+function BotonSecundario({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+    >
+      {children}
+    </button>
+  );
+}
+
+function BotonPeligro({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-red-100 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+    >
+      {children}
+    </button>
+  );
+}
+
+function BotonLink({
+  href,
+  children,
+  target = false,
+  color = "blue",
+}: {
+  href: string;
+  children: ReactNode;
+  target?: boolean;
+  color?: "blue" | "cyan" | "amber" | "purple" | "emerald";
+}) {
+  const colores = {
+    blue: "border-blue-100 text-blue-700 hover:bg-blue-50",
+    cyan: "border-cyan-100 text-cyan-700 hover:bg-cyan-50",
+    amber: "border-amber-100 text-amber-700 hover:bg-amber-50",
+    purple: "border-purple-100 text-purple-700 hover:bg-purple-50",
+    emerald: "border-emerald-100 text-emerald-700 hover:bg-emerald-50",
+  };
+
+  return (
+    <Link
+      href={href}
+      target={target ? "_blank" : undefined}
+      rel={target ? "noopener noreferrer" : undefined}
+      className={`inline-flex rounded-2xl border bg-white px-3 py-2 text-sm font-semibold ${colores[color]}`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function AvisoVacio({ texto }: { texto: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+      {texto}
+    </div>
+  );
+}
+
+function InfoAdminCard({
+  titulo,
+  subtitulo,
+  texto,
+  color,
+}: {
+  titulo: string;
+  subtitulo: string;
+  texto: string;
+  color: "amber" | "emerald" | "blue";
+}) {
+  const estilos = {
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    blue: "border-blue-200 bg-blue-50 text-blue-700",
+  };
+
+  return (
+    <div className={`rounded-2xl border p-5 ${estilos[color]}`}>
+      <p className="text-sm font-semibold">{titulo}</p>
+
+      <h3 className="mt-2 text-xl font-semibold text-slate-950">{subtitulo}</h3>
+
+      <p className="mt-2 text-sm leading-6">{texto}</p>
+    </div>
   );
 }

@@ -243,15 +243,15 @@ export default function AdminContenidoSubtemasPage() {
 
   function insertarSeparador() {
     insertarHtml(
-      `<hr style="border:0;border-top:1px solid #334155;margin:24px 0;" />`
+      `<hr style="border:0;border-top:1px solid #cbd5e1;margin:24px 0;" />`
     );
   }
 
   function insertarCajaImportante() {
     insertarHtml(`
-      <div style="border:1px solid #2563eb;background:#0f172a;border-radius:16px;padding:18px;margin:18px 0;">
-        <p style="margin:0;font-weight:700;color:#93c5fd;">Nota importante</p>
-        <p style="margin:8px 0 0 0;">Escribe aquí la información destacada.</p>
+      <div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:16px;padding:18px;margin:18px 0;">
+        <p style="margin:0;font-weight:700;color:#1d4ed8;">Nota importante</p>
+        <p style="margin:8px 0 0 0;color:#334155;">Escribe aquí la información destacada.</p>
       </div>
     `);
   }
@@ -475,6 +475,7 @@ export default function AdminContenidoSubtemasPage() {
         url
       )}</a>`
     );
+
     setRecursoUrl("");
   }
 
@@ -500,7 +501,7 @@ export default function AdminContenidoSubtemasPage() {
       <figure style="margin:22px 0;">
         <img src="${escaparAtributo(src)}" alt="${escaparAtributo(
       alt
-    )}" style="display:block;max-width:100%;height:auto;border-radius:16px;border:1px solid #334155;margin:auto;" />
+    )}" style="display:block;max-width:100%;height:auto;border-radius:16px;border:1px solid #cbd5e1;margin:auto;" />
         <figcaption style="margin-top:8px;text-align:center;color:#64748b;font-size:14px;">${escaparHtml(
           alt
         )}</figcaption>
@@ -514,7 +515,7 @@ export default function AdminContenidoSubtemasPage() {
 
   function insertarVideoArchivo(src: string) {
     insertarHtml(`
-      <video controls style="display:block;width:100%;max-height:520px;border-radius:16px;border:1px solid #334155;margin:22px 0;background:#020617;">
+      <video controls style="display:block;width:100%;max-height:520px;border-radius:16px;border:1px solid #cbd5e1;margin:22px 0;background:#020617;">
         <source src="${escaparAtributo(src)}" />
         Tu navegador no puede reproducir este video.
       </video>
@@ -523,11 +524,11 @@ export default function AdminContenidoSubtemasPage() {
 
   function insertarArchivoDescargable(src: string, nombre: string) {
     insertarHtml(`
-      <div style="border:1px solid #334155;background:#0f172a;border-radius:16px;padding:18px;margin:18px 0;">
-        <p style="margin:0 0 10px 0;font-weight:700;color:#e2e8f0;">Archivo descargable</p>
+      <div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:16px;padding:18px;margin:18px 0;">
+        <p style="margin:0 0 10px 0;font-weight:700;color:#1d4ed8;">Archivo descargable</p>
         <a href="${escaparAtributo(
           src
-        )}" target="_blank" rel="noreferrer" download style="display:inline-block;border:1px solid #38bdf8;border-radius:12px;padding:10px 14px;color:#7dd3fc;text-decoration:none;font-weight:700;">
+        )}" target="_blank" rel="noreferrer" download style="display:inline-block;border:1px solid #60a5fa;border-radius:12px;padding:10px 14px;color:#1d4ed8;text-decoration:none;font-weight:700;background:white;">
           Descargar: ${escaparHtml(nombre)}
         </a>
       </div>
@@ -545,322 +546,359 @@ export default function AdminContenidoSubtemasPage() {
   );
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#f6f8fc] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
-          <p className="text-sm uppercase tracking-[0.35em] text-blue-300">
-            Admin
-          </p>
+        <section className="mb-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+          <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 p-7 text-white sm:p-8">
+            <div className="relative z-10 max-w-4xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
+                Admin
+              </p>
 
-          <h1 className="mt-3 text-4xl font-bold">Contenido de subtemas</h1>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                Contenido de subtemas
+              </h1>
 
-          <p className="mt-3 max-w-4xl text-slate-400">
-            Edita el contenido del subtema como si fuera una publicación:
-            escribe texto, da formato, pega imágenes con Ctrl + V, inserta
-            videos por enlace y agrega archivos descargables.
-          </p>
+              <p className="mt-3 max-w-4xl text-sm leading-6 text-blue-50 sm:text-base">
+                Edita el contenido del subtema como si fuera una publicación:
+                escribe texto, da formato, pega imágenes con Ctrl + V, inserta
+                videos por enlace y agrega archivos descargables.
+              </p>
+            </div>
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/admin?seccion=subtemas"
-              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 hover:bg-slate-800"
-            >
-              Volver a subtemas
-            </Link>
-
-            {subtemaId && (
-              <Link
-                href={materiaId ? `/materias/${materiaId}` : "/materias"}
-                target="_blank"
-                className="rounded-xl border border-blue-700 px-5 py-3 font-semibold text-blue-300 hover:bg-blue-950"
-              >
-                Vista alumno
-              </Link>
-            )}
+            <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+            <div className="absolute -bottom-12 left-80 h-40 w-40 rounded-full bg-white/10" />
+            <div className="absolute right-16 top-10 h-8 w-8 rotate-12 rounded-xl bg-emerald-300/50" />
           </div>
-        </header>
+
+          <div className="border-t border-slate-100 bg-white p-4 sm:p-5">
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/admin?seccion=subtemas"
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              >
+                ← Volver a subtemas
+              </Link>
+
+              {subtemaId && (
+                <Link
+                  href={materiaId ? `/materias/${materiaId}` : "/materias"}
+                  target="_blank"
+                  className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-3 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100"
+                >
+                  Vista alumno ↗
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
 
         {mensaje && (
-          <div className="mb-6 rounded-xl border border-green-500 bg-green-950 p-4 text-sm text-green-200">
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-700 shadow-sm">
             {mensaje}
           </div>
         )}
 
         {error && (
-          <div className="mb-6 rounded-xl border border-red-500 bg-red-950 p-4 text-sm text-red-200">
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold leading-6 text-red-700 shadow-sm">
             {error}
           </div>
         )}
 
         {cargando && (
-          <div className="mb-6 rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
+          <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 p-5 text-sm font-semibold text-blue-700 shadow-sm">
             Cargando...
           </div>
         )}
 
         {subtemaSeleccionado ? (
-          <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-            <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">
-              Subtema seleccionado
-            </p>
+          <section className="mb-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
+                  Subtema seleccionado
+                </p>
 
-            <h2 className="mt-3 text-3xl font-bold">
-              {obtenerTitulo(subtemaSeleccionado)}
-            </h2>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+                  {obtenerTitulo(subtemaSeleccionado)}
+                </h2>
 
-            <p className="mt-2 text-sm text-slate-400">
-              Materia: {obtenerTitulo(materiaSeleccionada)} · Tema:{" "}
-              {obtenerTitulo(temaSeleccionado)}
-            </p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Materia: {obtenerTitulo(materiaSeleccionada)} · Tema:{" "}
+                  {obtenerTitulo(temaSeleccionado)}
+                </p>
 
-            {obtenerDescripcion(subtemaSeleccionado) && (
-              <p className="mt-4 text-slate-300">
-                {obtenerDescripcion(subtemaSeleccionado)}
-              </p>
-            )}
+                {obtenerDescripcion(subtemaSeleccionado) && (
+                  <p className="mt-4 max-w-4xl text-sm leading-6 text-slate-600">
+                    {obtenerDescripcion(subtemaSeleccionado)}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-3xl">
+                📄
+              </div>
+            </div>
           </section>
         ) : (
-          <section className="mb-8 rounded-3xl border border-yellow-600 bg-yellow-950/30 p-6 shadow-xl">
-            <h2 className="text-2xl font-bold text-yellow-200">
+          <section className="mb-6 rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-sm sm:p-7">
+            <h2 className="text-2xl font-semibold text-amber-900">
               No hay subtema seleccionado
             </h2>
 
-            <p className="mt-3 text-yellow-100">
+            <p className="mt-3 text-sm leading-6 text-amber-800">
               Regresa a la sección de subtemas y usa el botón “Administrar
               contenido” del subtema que quieras editar.
             </p>
 
             <Link
               href="/admin?seccion=subtemas"
-              className="mt-5 inline-flex rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-slate-950 hover:bg-yellow-400"
+              className="mt-5 inline-flex rounded-2xl bg-amber-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-amber-400"
             >
               Volver a subtemas
             </Link>
           </section>
         )}
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-          <div className="flex flex-col gap-4 border-b border-slate-800 pb-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Editor de contenido</h2>
-              <p className="mt-2 text-sm text-slate-400">
-                Escribe, pega imágenes con Ctrl + V, pega enlaces de YouTube,
-                Vimeo, PDF o imágenes, o sube archivos.
+        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-white p-6 sm:p-7">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-blue-600">
+                  Editor de contenido
+                </p>
+
+                <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                  Publicación del subtema
+                </h2>
+
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                  Escribe, pega imágenes con Ctrl + V, pega enlaces de YouTube,
+                  Vimeo, PDF o imágenes, o sube archivos.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={guardarContenido}
+                disabled={guardando || !subtemaId}
+                className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {guardando ? "Guardando..." : "Guardar contenido"}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-5 sm:p-6">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="mb-3 text-sm font-semibold text-slate-700">
+                Formato de texto
               </p>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("bold")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Negrita
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("italic")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm italic text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Cursiva
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("underline")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 underline transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Subrayado
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("formatBlock", "h2")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Título
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("formatBlock", "p")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Texto normal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("fontSize", "3")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Tamaño normal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("fontSize", "5")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Texto grande
+                </button>
+
+                <select
+                  onChange={(e) => ejecutarComando("fontName", e.target.value)}
+                  defaultValue=""
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400"
+                >
+                  <option value="" disabled>
+                    Tipo de letra
+                  </option>
+                  <option value="Arial">Arial</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="Verdana">Verdana</option>
+                  <option value="Courier New">Courier New</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("justifyLeft")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Izquierda
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("justifyCenter")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Centrar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("justifyRight")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Derecha
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("justifyFull")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Justificar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("insertUnorderedList")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Lista
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => ejecutarComando("insertOrderedList")}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Lista numérica
+                </button>
+
+                <button
+                  type="button"
+                  onClick={insertarSeparador}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Separador
+                </button>
+
+                <button
+                  type="button"
+                  onClick={insertarCajaImportante}
+                  className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                >
+                  Caja importante
+                </button>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={guardarContenido}
-              disabled={guardando || !subtemaId}
-              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-            >
-              {guardando ? "Guardando..." : "Guardar contenido"}
-            </button>
-          </div>
+            <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+              <input
+                value={recursoUrl}
+                onChange={(e) => setRecursoUrl(e.target.value)}
+                disabled={!subtemaId}
+                placeholder="Pega aquí un enlace de YouTube, Vimeo, imagen, PDF o cualquier recurso..."
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+              />
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => ejecutarComando("bold")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold hover:bg-slate-800"
-            >
-              Negrita
-            </button>
+              <button
+                type="button"
+                onClick={insertarUrlManual}
+                disabled={!subtemaId}
+                className="rounded-2xl border border-cyan-100 bg-cyan-50 px-5 py-3 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Insertar enlace/video
+              </button>
 
-            <button
-              type="button"
-              onClick={() => ejecutarComando("italic")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm italic hover:bg-slate-800"
-            >
-              Cursiva
-            </button>
+              <label className="cursor-pointer rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-3 text-center text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">
+                {subiendoArchivo ? "Subiendo..." : "Subir archivo"}
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleSeleccionArchivo}
+                  disabled={!subtemaId || subiendoArchivo}
+                  className="hidden"
+                />
+              </label>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => ejecutarComando("underline")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm underline hover:bg-slate-800"
-            >
-              Subrayado
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("formatBlock", "h2")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Título
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("formatBlock", "p")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Texto normal
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("fontSize", "3")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Tamaño normal
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("fontSize", "5")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Texto grande
-            </button>
-
-            <select
-              onChange={(e) => ejecutarComando("fontName", e.target.value)}
-              defaultValue=""
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-            >
-              <option value="" disabled>
-                Tipo de letra
-              </option>
-              <option value="Arial">Arial</option>
-              <option value="Georgia">Georgia</option>
-              <option value="Times New Roman">Times New Roman</option>
-              <option value="Verdana">Verdana</option>
-              <option value="Courier New">Courier New</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("justifyLeft")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Izquierda
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("justifyCenter")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Centrar
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("justifyRight")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Derecha
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("justifyFull")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Justificar
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("insertUnorderedList")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Lista
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("insertOrderedList")}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Lista numérica
-            </button>
-
-            <button
-              type="button"
-              onClick={insertarSeparador}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Separador
-            </button>
-
-            <button
-              type="button"
-              onClick={insertarCajaImportante}
-              className="rounded-lg border border-blue-700 px-3 py-2 text-sm text-blue-300 hover:bg-blue-950"
-            >
-              Caja importante
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
-            <input
-              value={recursoUrl}
-              onChange={(e) => setRecursoUrl(e.target.value)}
-              disabled={!subtemaId}
-              placeholder="Pega aquí un enlace de YouTube, Vimeo, imagen, PDF o cualquier recurso..."
-              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
+            <div
+              ref={editorRef}
+              contentEditable={Boolean(subtemaId)}
+              suppressContentEditableWarning
+              onPaste={handlePaste}
+              className="prose-editor mt-6 min-h-[620px] rounded-[1.5rem] border border-slate-200 bg-white p-6 text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
             />
 
-            <button
-              type="button"
-              onClick={insertarUrlManual}
-              disabled={!subtemaId}
-              className="rounded-xl border border-cyan-700 px-5 py-3 font-semibold text-cyan-300 hover:bg-cyan-950 disabled:opacity-50"
-            >
-              Insertar enlace/video
-            </button>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={guardarContenido}
+                disabled={guardando || !subtemaId}
+                className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {guardando ? "Guardando..." : "Guardar contenido"}
+              </button>
 
-            <label className="cursor-pointer rounded-xl border border-green-700 px-5 py-3 text-center font-semibold text-green-300 hover:bg-green-950">
-              {subiendoArchivo ? "Subiendo..." : "Subir archivo"}
-              <input
-                type="file"
-                multiple
-                onChange={handleSeleccionArchivo}
-                disabled={!subtemaId || subiendoArchivo}
-                className="hidden"
-              />
-            </label>
-          </div>
+              <button
+                type="button"
+                onClick={() => ejecutarComando("undo")}
+                disabled={!subtemaId}
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Deshacer
+              </button>
 
-          <div
-            ref={editorRef}
-            contentEditable={Boolean(subtemaId)}
-            suppressContentEditableWarning
-            onPaste={handlePaste}
-            className="prose-editor mt-6 min-h-[620px] rounded-2xl border border-slate-700 bg-white p-6 text-slate-950 outline-none focus:border-blue-500"
-          />
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={guardarContenido}
-              disabled={guardando || !subtemaId}
-              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-            >
-              {guardando ? "Guardando..." : "Guardar contenido"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("undo")}
-              disabled={!subtemaId}
-              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              Deshacer
-            </button>
-
-            <button
-              type="button"
-              onClick={() => ejecutarComando("redo")}
-              disabled={!subtemaId}
-              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              Rehacer
-            </button>
+              <button
+                type="button"
+                onClick={() => ejecutarComando("redo")}
+                disabled={!subtemaId}
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Rehacer
+              </button>
+            </div>
           </div>
         </section>
       </div>
@@ -869,6 +907,7 @@ export default function AdminContenidoSubtemasPage() {
         .prose-editor {
           line-height: 1.7;
           font-size: 16px;
+          min-height: 620px;
         }
 
         .prose-editor:empty:before {
@@ -924,7 +963,7 @@ function construirVideoIncrustadoHtml(src: string, originalUrl: string) {
       data-video-embed="${escaparAtributo(src)}"
       style="margin:22px 0;"
     >
-      <div style="position:relative;width:100%;padding-top:56.25%;border:1px solid #334155;border-radius:16px;overflow:hidden;background:#020617;">
+      <div style="position:relative;width:100%;padding-top:56.25%;border:1px solid #cbd5e1;border-radius:16px;overflow:hidden;background:#020617;">
         <iframe
           src="${escaparAtributo(src)}"
           title="Video del subtema"
@@ -1007,7 +1046,7 @@ function convertirBloquesAntiguosAHtml(bloques: BloqueContenido[]) {
               bloque.url
             )}" alt="${escaparAtributo(
           bloque.titulo || "Imagen"
-        )}" style="display:block;max-width:100%;height:auto;border-radius:16px;border:1px solid #334155;margin:auto;" />
+        )}" style="display:block;max-width:100%;height:auto;border-radius:16px;border:1px solid #cbd5e1;margin:auto;" />
           </figure>
         `;
       }
@@ -1024,11 +1063,11 @@ function convertirBloquesAntiguosAHtml(bloques: BloqueContenido[]) {
 
       if (bloque.tipo === "pdf" && bloque.url) {
         return `
-          <div style="border:1px solid #334155;background:#0f172a;border-radius:16px;padding:18px;margin:18px 0;">
-            <p style="margin:0 0 10px 0;font-weight:700;color:#e2e8f0;">Archivo descargable</p>
+          <div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:16px;padding:18px;margin:18px 0;">
+            <p style="margin:0 0 10px 0;font-weight:700;color:#1d4ed8;">Archivo descargable</p>
             <a href="${escaparAtributo(
               bloque.url
-            )}" target="_blank" rel="noreferrer" download style="display:inline-block;border:1px solid #38bdf8;border-radius:12px;padding:10px 14px;color:#7dd3fc;text-decoration:none;font-weight:700;">
+            )}" target="_blank" rel="noreferrer" download style="display:inline-block;border:1px solid #60a5fa;border-radius:12px;padding:10px 14px;color:#1d4ed8;text-decoration:none;font-weight:700;background:white;">
               Descargar: ${escaparHtml(bloque.titulo || "PDF")}
             </a>
           </div>
@@ -1069,10 +1108,12 @@ function esUrlPdf(url: string) {
 function esUrlVideo(url: string) {
   try {
     const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+
     return (
-      parsed.hostname.includes("youtube.com") ||
-      parsed.hostname.includes("youtu.be") ||
-      parsed.hostname.includes("vimeo.com")
+      hostname.includes("youtube.com") ||
+      hostname.includes("youtu.be") ||
+      hostname.includes("vimeo.com")
     );
   } catch {
     return false;
@@ -1084,20 +1125,61 @@ function convertirVideoAEmbed(url: string) {
 
   try {
     const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
 
-    if (parsed.hostname.includes("youtube.com")) {
+    if (hostname.includes("youtube.com")) {
       const videoId = parsed.searchParams.get("v");
-      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+
+      if (parsed.pathname.includes("/embed/")) {
+        return url;
+      }
+
+      if (parsed.pathname.includes("/shorts/")) {
+        const partes = parsed.pathname.split("/").filter(Boolean);
+        const videoIdShort = partes[1];
+
+        if (videoIdShort) {
+          return `https://www.youtube.com/embed/${videoIdShort}`;
+        }
+      }
     }
 
-    if (parsed.hostname.includes("youtu.be")) {
-      const videoId = parsed.pathname.replace("/", "");
-      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+    if (hostname.includes("youtu.be")) {
+      const videoId = parsed.pathname.replace("/", "").trim();
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
     }
 
-    if (parsed.hostname.includes("vimeo.com")) {
-      const videoId = parsed.pathname.replace("/", "");
-      if (videoId) return `https://player.vimeo.com/video/${videoId}`;
+    if (hostname.includes("player.vimeo.com")) {
+      const match = parsed.pathname.match(/\/video\/([^/?#]+)/);
+      const videoId = match?.[1];
+
+      if (videoId) {
+        const hash = parsed.searchParams.get("h");
+        const query = hash ? `?h=${encodeURIComponent(hash)}` : "";
+
+        return `https://player.vimeo.com/video/${videoId}${query}`;
+      }
+
+      return url;
+    }
+
+    if (hostname.includes("vimeo.com")) {
+      const partes = parsed.pathname.split("/").filter(Boolean);
+      const videoId = partes[0];
+
+      if (videoId) {
+        const hash = parsed.searchParams.get("h") || partes[1];
+        const query = hash ? `?h=${encodeURIComponent(hash)}` : "";
+
+        return `https://player.vimeo.com/video/${videoId}${query}`;
+      }
     }
 
     return "";

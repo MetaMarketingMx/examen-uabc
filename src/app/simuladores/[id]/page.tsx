@@ -76,6 +76,8 @@ type AvanceSimulador = {
   actualizado_en?: string;
 };
 
+type TipoFinalizacion = "manual" | "tiempo" | null;
+
 const TABLA_SIMULADORES = "simuladores";
 const TABLA_SECCIONES = "secciones_simuladores";
 const TABLA_INSTRUCCIONES = "instrucciones_simuladores";
@@ -103,6 +105,9 @@ export default function SimuladorAlumnoPage() {
   const salidaPermitidaRef = useRef(false);
   const avanceOriginalRef = useRef<string | null>(null);
 
+  const finalizacionEnProcesoRef = useRef(false);
+  const guardadoEnProcesoRef = useRef(false);
+
   const [simulador, setSimulador] = useState<Registro | null>(null);
   const [secciones, setSecciones] = useState<SeccionSimulador[]>([]);
   const [instrucciones, setInstrucciones] = useState<InstruccionSimulador[]>(
@@ -116,7 +121,12 @@ export default function SimuladorAlumnoPage() {
 
   const [mostrarResultado, setMostrarResultado] = useState(false);
   const [resultadoGuardado, setResultadoGuardado] = useState(false);
+  const [resultadoGuardadoId, setResultadoGuardadoId] = useState<
+    string | number | null
+  >(null);
   const [guardandoResultado, setGuardandoResultado] = useState(false);
+  const [tipoFinalizacion, setTipoFinalizacion] =
+    useState<TipoFinalizacion>(null);
 
   const [cargando, setCargando] = useState(true);
   const [segundosRestantes, setSegundosRestantes] = useState<number | null>(
@@ -148,9 +158,11 @@ export default function SimuladorAlumnoPage() {
 
         if (prev <= 1) {
           window.clearInterval(intervalo);
+
           setTimeout(() => {
             terminarSimulador(true);
           }, 0);
+
           return 0;
         }
 
@@ -584,7 +596,12 @@ export default function SimuladorAlumnoPage() {
     setCargando(true);
     setMostrarResultado(false);
     setResultadoGuardado(false);
+    setResultadoGuardadoId(null);
     setGuardandoResultado(false);
+    setTipoFinalizacion(null);
+
+    finalizacionEnProcesoRef.current = false;
+    guardadoEnProcesoRef.current = false;
 
     if (nuevoIntento) {
       avanceOriginalRef.current = null;
@@ -901,85 +918,74 @@ export default function SimuladorAlumnoPage() {
     return Math.max(0, Math.floor((Date.now() - inicioTimestamp) / 1000));
   }
 
-  async function guardarResultado(respuestasActuales: Record<string, string>) {
-    if (!simulador) return;
+  async function guardarResultado(
+    respuestasActuales: Record<string, string>,
+    automaticoPorTiempo = false
+  ) {
+    if (!simulador) return null;
 
-    const correctas = calcularCorrectas(respuestasActuales);
-    const total = preguntas.length;
-    const promedio = total > 0 ? Math.round((correctas / total) * 100) : 0;
-    const aciertosPuntaje = Math.min(correctas, ACIERTOS_MAXIMOS_PUNTAJE);
+    if (guardadoEnProcesoRef.current) {
+      console.warn("El resultado ya se está guardando. Se evitó un duplicado.");
+      return null;
+    }
 
-    const puntaje =
-      ACIERTOS_MAXIMOS_PUNTAJE > 0
-        ? Math.min(
-            PUNTAJE_MAXIMO,
-            Math.round(
-              (aciertosPuntaje / ACIERTOS_MAXIMOS_PUNTAJE) * PUNTAJE_MAXIMO
-            )
-          )
-        : 0;
-
-    const tiempoUsado = obtenerTiempoUsado();
-    const resumen = calcularResumenAreas(respuestasActuales);
-
-    const detalleRespuestas = preguntas.map((item, index) => {
-      const idPregunta = String(item.id);
-      const respuestaAlumno = respuestasActuales[idPregunta] ?? "";
-      const respuestaCorrecta = String(
-        item.respuesta_correcta ?? ""
-      ).toUpperCase();
-
-      return {
-        numero: index + 1,
-        pregunta_id: item.id,
-        area: obtenerAreaDePregunta(item),
-        seccion_id: item.seccion_id ?? null,
-        pregunta: prepararHtml(item.pregunta ?? ""),
-        opciones: [
-          { clave: "A", contenido: prepararHtml(item.opcion_a ?? "") },
-          { clave: "B", contenido: prepararHtml(item.opcion_b ?? "") },
-          { clave: "C", contenido: prepararHtml(item.opcion_c ?? "") },
-          { clave: "D", contenido: prepararHtml(item.opcion_d ?? "") },
-        ],
-        respuesta_alumno: respuestaAlumno,
-        respuesta_correcta: respuestaCorrecta,
-        correcta: respuestaAlumno === respuestaCorrecta,
-        explicacion: item.explicacion ?? "",
-      };
-    });
-
+    guardadoEnProcesoRef.current = true;
     setGuardandoResultado(true);
+    setResultadoGuardado(false);
+    setResultadoGuardadoId(null);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData?.user;
+    try {
+      const correctas = calcularCorrectas(respuestasActuales);
+      const total = preguntas.length;
+      const promedio = total > 0 ? Math.round((correctas / total) * 100) : 0;
+      const aciertosPuntaje = Math.min(correctas, ACIERTOS_MAXIMOS_PUNTAJE);
 
-    const payloadCompleto = {
-      simulador_id: simuladorId,
-      alumno_id: user?.id ?? "sin-login",
-      alumno_nombre:
-        user?.user_metadata?.nombre_completo ??
-        user?.email ??
-        "Alumno sin nombre",
-      total_preguntas: total,
-      correctas,
-      calificacion: promedio,
-      tiempo_limite_minutos: Number(simulador.tiempo_minutos ?? 0),
-      tiempo_usado_segundos: tiempoUsado,
-      respuestas: detalleRespuestas,
-      resumen_areas: resumen,
-      puntaje_1300: puntaje,
-      promedio_general: promedio,
-      aciertos_para_puntaje: aciertosPuntaje,
-    };
+      const puntaje =
+        ACIERTOS_MAXIMOS_PUNTAJE > 0
+          ? Math.min(
+              PUNTAJE_MAXIMO,
+              Math.round(
+                (aciertosPuntaje / ACIERTOS_MAXIMOS_PUNTAJE) * PUNTAJE_MAXIMO
+              )
+            )
+          : 0;
 
-    const { error } = await supabase
-      .from(TABLA_RESULTADOS)
-      .insert(payloadCompleto);
+      const tiempoUsado = obtenerTiempoUsado();
+      const resumen = calcularResumenAreas(respuestasActuales);
 
-    if (error) {
-      console.error("Error guardando resultado completo:", error);
+      const detalleRespuestas = preguntas.map((item, index) => {
+        const idPregunta = String(item.id);
+        const respuestaAlumno = respuestasActuales[idPregunta] ?? "";
+        const respuestaCorrecta = String(
+          item.respuesta_correcta ?? ""
+        ).toUpperCase();
 
-      const payloadBasico = {
+        return {
+          numero: index + 1,
+          pregunta_id: item.id,
+          area: obtenerAreaDePregunta(item),
+          seccion_id: item.seccion_id ?? null,
+          pregunta: prepararHtml(item.pregunta ?? ""),
+          opciones: [
+            { clave: "A", contenido: prepararHtml(item.opcion_a ?? "") },
+            { clave: "B", contenido: prepararHtml(item.opcion_b ?? "") },
+            { clave: "C", contenido: prepararHtml(item.opcion_c ?? "") },
+            { clave: "D", contenido: prepararHtml(item.opcion_d ?? "") },
+          ],
+          respuesta_alumno: respuestaAlumno,
+          respuesta_correcta: respuestaCorrecta,
+          correcta: respuestaAlumno === respuestaCorrecta,
+          explicacion: item.explicacion ?? "",
+        };
+      });
+
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      const tipo = automaticoPorTiempo ? "tiempo_agotado" : "normal";
+      const finalizadoPor = automaticoPorTiempo ? "sistema" : "alumno";
+
+      const payloadCompleto = {
         simulador_id: simuladorId,
         alumno_id: user?.id ?? "sin-login",
         alumno_nombre:
@@ -992,31 +998,83 @@ export default function SimuladorAlumnoPage() {
         tiempo_limite_minutos: Number(simulador.tiempo_minutos ?? 0),
         tiempo_usado_segundos: tiempoUsado,
         respuestas: detalleRespuestas,
+        resumen_areas: resumen,
+        puntaje_1300: puntaje,
+        promedio_general: promedio,
+        aciertos_para_puntaje: aciertosPuntaje,
+        tipo_finalizacion: tipo,
+        finalizado_por: finalizadoPor,
+        finalizacion_automatica: automaticoPorTiempo,
       };
 
-      const { error: errorBasico } = await supabase
+      const { data: resultadoInsertado, error } = await supabase
         .from(TABLA_RESULTADOS)
-        .insert(payloadBasico);
+        .insert(payloadCompleto)
+        .select("id")
+        .single();
 
-      if (errorBasico) {
-        console.error("Error guardando resultado básico:", errorBasico);
-        setResultadoGuardado(false);
-      } else {
+      if (error) {
+        console.error("Error guardando resultado completo:", error);
+
+        const payloadBasico = {
+          simulador_id: simuladorId,
+          alumno_id: user?.id ?? "sin-login",
+          alumno_nombre:
+            user?.user_metadata?.nombre_completo ??
+            user?.email ??
+            "Alumno sin nombre",
+          total_preguntas: total,
+          correctas,
+          calificacion: promedio,
+          tiempo_limite_minutos: Number(simulador.tiempo_minutos ?? 0),
+          tiempo_usado_segundos: tiempoUsado,
+          respuestas: detalleRespuestas,
+          tipo_finalizacion: tipo,
+          finalizado_por: finalizadoPor,
+          finalizacion_automatica: automaticoPorTiempo,
+        };
+
+        const { data: resultadoBasicoInsertado, error: errorBasico } =
+          await supabase
+            .from(TABLA_RESULTADOS)
+            .insert(payloadBasico)
+            .select("id")
+            .single();
+
+        if (errorBasico) {
+          console.error("Error guardando resultado básico:", errorBasico);
+          setResultadoGuardado(false);
+          setResultadoGuardadoId(null);
+          return null;
+        }
+
         setResultadoGuardado(true);
+        setResultadoGuardadoId(resultadoBasicoInsertado?.id ?? null);
         borrarAvanceLocal();
         avanceOriginalRef.current = null;
+
+        return resultadoBasicoInsertado?.id ?? null;
       }
-    } else {
+
       setResultadoGuardado(true);
+      setResultadoGuardadoId(resultadoInsertado?.id ?? null);
       borrarAvanceLocal();
       avanceOriginalRef.current = null;
-    }
 
-    setGuardandoResultado(false);
+      return resultadoInsertado?.id ?? null;
+    } finally {
+      setGuardandoResultado(false);
+      guardadoEnProcesoRef.current = false;
+    }
   }
 
   async function terminarSimulador(automatico = false) {
-    if (preguntas.length === 0 || mostrarResultado || guardandoResultado) {
+    if (
+      preguntas.length === 0 ||
+      mostrarResultado ||
+      guardandoResultado ||
+      finalizacionEnProcesoRef.current
+    ) {
       return;
     }
 
@@ -1032,9 +1090,18 @@ export default function SimuladorAlumnoPage() {
       if (!confirmar) return;
     }
 
+    finalizacionEnProcesoRef.current = true;
+
+    setTipoFinalizacion(automatico ? "tiempo" : "manual");
     setMostrarResultado(true);
-    await guardarResultado(respuestas);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    try {
+      await guardarResultado(respuestas, automatico);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      console.error("Error al finalizar simulador:", error);
+      setResultadoGuardado(false);
+    }
   }
 
   function reiniciarSimulador() {
@@ -1043,7 +1110,13 @@ export default function SimuladorAlumnoPage() {
     setIndiceActual(0);
     setMostrarResultado(false);
     setResultadoGuardado(false);
+    setResultadoGuardadoId(null);
     setGuardandoResultado(false);
+    setTipoFinalizacion(null);
+
+    finalizacionEnProcesoRef.current = false;
+    guardadoEnProcesoRef.current = false;
+
     setMensajeAvance("Nuevo intento iniciado desde cero.");
     setAvanceGuardadoReciente(false);
     borrarAvanceLocal();
@@ -1178,7 +1251,13 @@ export default function SimuladorAlumnoPage() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-2xl bg-slate-900 px-5 py-3 text-center text-white shadow-sm">
+              <div
+                className={`rounded-2xl px-5 py-3 text-center text-white shadow-sm ${
+                  segundosRestantes !== null && segundosRestantes <= 60
+                    ? "bg-red-700"
+                    : "bg-slate-900"
+                }`}
+              >
                 <p className="text-xs font-semibold text-slate-300">
                   Tiempo restante
                 </p>
@@ -1190,10 +1269,16 @@ export default function SimuladorAlumnoPage() {
               <button
                 type="button"
                 onClick={() => terminarSimulador(false)}
-                disabled={guardandoResultado || mostrarResultado}
+                disabled={
+                  guardandoResultado ||
+                  mostrarResultado ||
+                  finalizacionEnProcesoRef.current
+                }
                 className="rounded-2xl bg-red-600 px-5 py-4 text-sm font-black text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Finalizar intento
+                {guardandoResultado || finalizacionEnProcesoRef.current
+                  ? "Finalizando..."
+                  : "Finalizar intento"}
               </button>
             </div>
           </div>
@@ -1232,6 +1317,23 @@ export default function SimuladorAlumnoPage() {
 
             {mostrarResultado && (
               <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm">
+                {tipoFinalizacion === "tiempo" && (
+                  <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800">
+                    <p className="text-sm font-black uppercase tracking-[0.2em]">
+                      Tiempo agotado
+                    </p>
+
+                    <h2 className="mt-2 text-2xl font-black">
+                      El tiempo terminó
+                    </h2>
+
+                    <p className="mt-2 text-sm leading-6">
+                      Tu simulador fue entregado automáticamente. Se guardaron
+                      las respuestas que alcanzaste a contestar.
+                    </p>
+                  </div>
+                )}
+
                 <p className="text-sm font-black uppercase tracking-[0.25em] text-blue-600">
                   Resultado
                 </p>
@@ -1247,6 +1349,15 @@ export default function SimuladorAlumnoPage() {
 
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   Tiempo usado: {formatearTiempo(obtenerTiempoUsado())}
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Finalización:{" "}
+                  <span className="font-bold">
+                    {tipoFinalizacion === "tiempo"
+                      ? "Automática por tiempo agotado"
+                      : "Manual por el alumno"}
+                  </span>
                 </p>
 
                 <p className="mt-2 text-sm font-bold text-slate-500">
@@ -1281,6 +1392,15 @@ export default function SimuladorAlumnoPage() {
                 )}
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  {resultadoGuardadoId && (
+                    <Link
+                      href={`/resultados?resultado=${resultadoGuardadoId}&volver=simuladores`}
+                      className="rounded-2xl bg-blue-600 px-5 py-3 text-center font-bold text-white hover:bg-blue-500"
+                    >
+                      Ver detalle completo
+                    </Link>
+                  )}
+
                   <Link
                     href={destinoVolver}
                     className="rounded-2xl bg-slate-900 px-5 py-3 text-center font-bold text-white hover:bg-slate-800"

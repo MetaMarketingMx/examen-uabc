@@ -481,14 +481,14 @@ export default function SimuladoresPage() {
 
   function obtenerClasesEstado(estado: EstadoSimulador) {
     if (estado === "En progreso") {
-      return "border-amber-200 bg-amber-50 text-amber-700";
+      return "border-amber-300 bg-amber-100 text-amber-800";
     }
 
     if (estado === "Completado") {
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+      return "border-emerald-300 bg-emerald-100 text-emerald-800";
     }
 
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-blue-300 bg-blue-100 text-blue-800";
   }
 
   function obtenerClasesBoton(simulador: Simulador) {
@@ -515,9 +515,9 @@ export default function SimuladoresPage() {
     const titulo = obtenerTitulo(simulador);
 
     const mensaje =
-  estado === "En progreso"
-    ? `Este simulador tiene un avance guardado.\n\nSi inicias un nuevo intento, se borrará ese avance guardado y el simulador comenzará desde cero.\n\nLos intentos que ya finalizaste seguirán disponibles en Resultados.\n\n¿Deseas continuar?`
-    : `Vas a iniciar un nuevo intento de "${titulo}".\n\nLos intentos que ya finalizaste seguirán disponibles en Resultados, pero este simulador comenzará desde cero.\n\n¿Deseas continuar?`;
+      estado === "En progreso"
+        ? `Este simulador tiene un avance guardado.\n\nSi inicias un nuevo intento, se borrará ese avance guardado y el simulador comenzará desde cero.\n\nLos intentos que ya finalizaste seguirán disponibles en Resultados.\n\n¿Deseas continuar?`
+        : `Vas a iniciar un nuevo intento de "${titulo}".\n\nLos intentos que ya finalizaste seguirán disponibles en Resultados, pero este simulador comenzará desde cero.\n\n¿Deseas continuar?`;
 
     const confirmar = window.confirm(mensaje);
 
@@ -593,20 +593,22 @@ export default function SimuladoresPage() {
 
   return (
     <AlumnoProtegido>
-      <main className="min-h-screen bg-slate-50 text-slate-900">
-        <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[1fr_340px] sm:px-6">
+      <main className="min-h-screen bg-[#edf3fb] text-slate-900">
+        <section className="mx-auto max-w-[1320px] px-4 py-5 sm:px-6 lg:px-8">
           <div className="space-y-6">
-            <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm sm:p-6">
+            <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 p-7 text-white shadow-sm">
               {!editandoPanel ? (
-                <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
-                      Aviso
-                    </span>
+                <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                  <div className="max-w-3xl">
+                    <p className="text-sm font-semibold text-blue-100">
+                      Simuladores académicos
+                    </p>
 
-                    <h2 className="mt-3 text-xl font-black">{tituloPanel}</h2>
+                    <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
+                      {tituloPanel}
+                    </h1>
 
-                    <p className="mt-2 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                    <p className="mt-3 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-blue-50 sm:text-base sm:leading-7">
                       {contenidoPanel}
                     </p>
                   </div>
@@ -619,24 +621,26 @@ export default function SimuladoresPage() {
                         setContenidoEditado(contenidoPanel);
                         setEditandoPanel(true);
                       }}
-                      className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
+                      className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-blue-700 shadow-sm hover:bg-blue-50"
                     >
                       Editar aviso
                     </button>
                   )}
                 </div>
               ) : (
-                <div>
-                  <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                <div className="relative z-10 rounded-3xl bg-white/95 p-5 text-slate-900 shadow-sm">
+                  <p className="text-sm font-semibold text-blue-600">
                     Editando aviso del alumno
-                  </span>
+                  </p>
 
                   <div className="mt-4 space-y-3">
                     <input
                       value={tituloEditado}
-                      onChange={(event) => setTituloEditado(event.target.value)}
+                      onChange={(event) =>
+                        setTituloEditado(event.target.value)
+                      }
                       placeholder="Título del aviso"
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-400"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-400"
                     />
 
                     <textarea
@@ -670,377 +674,500 @@ export default function SimuladoresPage() {
                   </div>
                 </div>
               )}
+
+              <div className="absolute bottom-0 right-8 hidden h-44 w-72 lg:block">
+                <div className="absolute bottom-0 right-10 h-28 w-40 rounded-t-[3rem] bg-white/25 backdrop-blur" />
+                <div className="absolute bottom-10 right-20 h-20 w-20 rounded-full bg-white/30" />
+                <div className="absolute bottom-16 right-28 h-12 w-12 rounded-full bg-slate-900/20" />
+                <div className="absolute bottom-8 right-0 h-24 w-36 rounded-3xl bg-white/90 shadow-lg" />
+                <div className="absolute bottom-16 right-7 h-3 w-24 rounded-full bg-blue-200" />
+                <div className="absolute bottom-11 right-7 h-3 w-20 rounded-full bg-blue-100" />
+                <div className="absolute bottom-20 right-4 text-4xl">✏️</div>
+              </div>
+
+              <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+              <div className="absolute -bottom-12 left-80 h-40 w-40 rounded-full bg-white/10" />
+              <div className="absolute right-72 top-10 h-8 w-8 rotate-12 rounded-xl bg-emerald-300/50" />
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-wrap gap-2">
-                  {(
-                    [
-                      "Todos",
-                      "Disponibles",
-                      "En progreso",
-                      "Completados",
-                    ] as const
-                  ).map((filtro) => (
-                    <button
-                      key={filtro}
-                      type="button"
-                      onClick={() => setFiltroEstado(filtro)}
-                      className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                        filtroEstado === filtro
-                          ? "bg-slate-900 text-white"
-                          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {filtro}
-                    </button>
-                  ))}
+            <section className="rounded-[2rem] border border-blue-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-2xl">
+                    📊
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-700">
+                      Panel
+                    </p>
+
+                    <h2 className="text-xl font-semibold text-slate-950">
+                      Resumen
+                    </h2>
+                  </div>
                 </div>
 
-                <input
-                  value={busqueda}
-                  onChange={(event) => setBusqueda(event.target.value)}
-                  placeholder="Buscar simulador..."
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-400 xl:w-72"
+                <p className="text-sm leading-6 text-slate-500 lg:max-w-md lg:text-right">
+                  Vista rápida de tus simuladores, avances y mejor puntaje
+                  registrado.
+                </p>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <ResumenCard
+                  icono="🖥️"
+                  valor={resumen.total}
+                  texto="Simuladores"
+                  color="slate"
+                />
+
+                <ResumenCard
+                  icono="⏳"
+                  valor={resumen.enProgreso}
+                  texto="En progreso"
+                  color="amber"
+                />
+
+                <ResumenCard
+                  icono="✅"
+                  valor={resumen.completados}
+                  texto="Completados"
+                  color="emerald"
+                />
+
+                <ResumenCard
+                  icono="🏆"
+                  valor={resumen.mejorPuntaje}
+                  texto="Mejor puntaje"
+                  color="blue"
                 />
               </div>
             </section>
 
-            {cargando && (
-              <section className="rounded-3xl border border-slate-200 bg-white p-8 text-slate-600 shadow-sm">
-                Cargando simuladores...
-              </section>
-            )}
+            <div className="grid gap-6 xl:grid-cols-[1fr_330px] xl:items-start">
+              <div className="space-y-6">
+                <section className="rounded-[2rem] border border-blue-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        [
+                          "Todos",
+                          "Disponibles",
+                          "En progreso",
+                          "Completados",
+                        ] as const
+                      ).map((filtro) => (
+                        <button
+                          key={filtro}
+                          type="button"
+                          onClick={() => setFiltroEstado(filtro)}
+                          className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
+                            filtroEstado === filtro
+                              ? "bg-blue-600 text-white shadow-sm"
+                              : "border border-slate-300 bg-slate-100 text-slate-700 hover:border-blue-300 hover:bg-blue-100 hover:text-blue-800"
+                          }`}
+                        >
+                          {filtro}
+                        </button>
+                      ))}
+                    </div>
 
-            {!cargando && simuladores.length === 0 && (
-              <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-                <h2 className="text-2xl font-black">
-                  Todavía no hay simuladores
-                </h2>
-
-                <p className="mt-3 text-slate-600">
-                  Cuando agregues simuladores desde el panel admin, aparecerán
-                  aquí.
-                </p>
-
-                <Link
-                  href="/admin"
-                  className="mt-6 inline-flex rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white hover:bg-blue-500"
-                >
-                  Ir al admin
-                </Link>
-              </section>
-            )}
-
-            {!cargando &&
-              simuladores.length > 0 &&
-              simuladoresFiltrados.length === 0 && (
-                <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-                  <h2 className="text-2xl font-black">
-                    No hay simuladores con ese filtro
-                  </h2>
-
-                  <p className="mt-3 text-slate-600">
-                    Prueba cambiar la búsqueda o seleccionar otro estado.
-                  </p>
+                    <input
+                      value={busqueda}
+                      onChange={(event) => setBusqueda(event.target.value)}
+                      placeholder="Buscar simulador..."
+                      className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-400 focus:bg-white xl:w-80"
+                    />
+                  </div>
                 </section>
-              )}
 
-            {!cargando && simuladoresFiltrados.length > 0 && (
-              <section className="grid gap-4">
-                {simuladoresFiltrados.map((simulador) => {
-                  const id = String(simulador.id);
-                  const estado = obtenerEstado(simulador);
-                  const avance = avancesLocales[id];
-                  const resultado = resultadosPorSimulador[id];
-                  const totalPreguntas = preguntasPorSimulador[id] ?? 0;
-                  const respuestasGuardadas = contarRespuestas(avance);
-                  const marcadasGuardadas = contarMarcadas(avance);
+                {cargando && (
+                  <section className="rounded-[2rem] border border-blue-200 bg-white p-8 text-slate-600 shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-3xl">
+                        🖥️
+                      </div>
 
-                  const porcentajeAvance =
-                    totalPreguntas > 0
-                      ? Math.min(
-                          100,
-                          Math.round(
-                            (respuestasGuardadas / totalPreguntas) * 100
-                          )
-                        )
-                      : 0;
+                      <div>
+                        <p className="text-sm font-semibold text-blue-700">
+                          Simuladores
+                        </p>
 
-                  return (
-                    <article
-                      key={simulador.id}
-                      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-6"
+                        <h2 className="mt-1 text-2xl font-semibold text-slate-900">
+                          Cargando simuladores...
+                        </h2>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-200">
+                      <div className="h-full w-2/5 animate-pulse rounded-full bg-blue-600" />
+                    </div>
+                  </section>
+                )}
+
+                {!cargando && simuladores.length === 0 && (
+                  <section className="rounded-[2rem] border border-slate-300 bg-white p-8 shadow-sm">
+                    <h2 className="text-2xl font-semibold text-slate-900">
+                      Todavía no hay simuladores
+                    </h2>
+
+                    <p className="mt-3 text-slate-600">
+                      Cuando agregues simuladores desde el panel admin,
+                      aparecerán aquí.
+                    </p>
+
+                    <Link
+                      href="/admin"
+                      className="mt-6 inline-flex rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white hover:bg-blue-500"
                     >
-                      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`rounded-full border px-3 py-1 text-xs font-bold ${obtenerClasesEstado(
-                                estado
-                              )}`}
-                            >
-                              {estado}
-                            </span>
+                      Ir al admin
+                    </Link>
+                  </section>
+                )}
+
+                {!cargando &&
+                  simuladores.length > 0 &&
+                  simuladoresFiltrados.length === 0 && (
+                    <section className="rounded-[2rem] border border-slate-300 bg-white p-8 shadow-sm">
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        No hay simuladores con ese filtro
+                      </h2>
+
+                      <p className="mt-3 text-slate-600">
+                        Prueba cambiar la búsqueda o seleccionar otro estado.
+                      </p>
+                    </section>
+                  )}
+
+                {!cargando && simuladoresFiltrados.length > 0 && (
+                  <section className="grid gap-5">
+                    {simuladoresFiltrados.map((simulador) => {
+                      const id = String(simulador.id);
+                      const estado = obtenerEstado(simulador);
+                      const avance = avancesLocales[id];
+                      const resultado = resultadosPorSimulador[id];
+                      const totalPreguntas = preguntasPorSimulador[id] ?? 0;
+                      const respuestasGuardadas = contarRespuestas(avance);
+                      const marcadasGuardadas = contarMarcadas(avance);
+
+                      const porcentajeAvance =
+                        totalPreguntas > 0
+                          ? Math.min(
+                              100,
+                              Math.round(
+                                (respuestasGuardadas / totalPreguntas) * 100
+                              )
+                            )
+                          : 0;
+
+                      return (
+                        <article
+                          key={simulador.id}
+                          className="overflow-hidden rounded-[2rem] border border-slate-300 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+                        >
+                          <div className="border-b border-slate-200 bg-slate-100 p-5 sm:p-6">
+                            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span
+                                    className={`rounded-full border px-3 py-1 text-xs font-bold ${obtenerClasesEstado(
+                                      estado
+                                    )}`}
+                                  >
+                                    {estado}
+                                  </span>
+
+                                  {estado === "En progreso" && (
+                                    <span className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-bold text-amber-800">
+                                      Avance guardado
+                                    </span>
+                                  )}
+
+                                  {estado === "Completado" && (
+                                    <span className="rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-bold text-emerald-800">
+                                      Último intento
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h2 className="mt-3 text-2xl font-semibold text-slate-950 sm:text-3xl">
+                                  {obtenerTitulo(simulador)}
+                                </h2>
+
+                                {obtenerDescripcion(simulador) && (
+                                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
+                                    {obtenerDescripcion(simulador)}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex shrink-0 flex-col gap-3 xl:w-52">
+                                <Link
+                                  href={obtenerHrefPrincipal(simulador)}
+                                  className={`rounded-2xl px-5 py-3 text-center text-sm font-bold shadow-sm transition ${obtenerClasesBoton(
+                                    simulador
+                                  )}`}
+                                >
+                                  {obtenerTextoBotonPrincipal(simulador)}
+                                </Link>
+
+                                {(estado === "En progreso" ||
+                                  estado === "Completado") && (
+                                  <Link
+                                    href={obtenerHrefNuevoIntento(simulador)}
+                                    onClick={(event) =>
+                                      confirmarNuevoIntento(event, simulador)
+                                    }
+                                    className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-center text-sm font-bold text-slate-700 hover:bg-slate-100"
+                                  >
+                                    Nuevo intento
+                                  </Link>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-5 sm:p-6">
+                            <div className="grid gap-3 sm:grid-cols-3">
+                              <div className="rounded-2xl border border-blue-200 bg-blue-100 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wider text-blue-800">
+                                  Preguntas
+                                </p>
+
+                                <p className="mt-2 text-2xl font-semibold text-slate-950">
+                                  {totalPreguntas > 0
+                                    ? totalPreguntas
+                                    : "Sin preguntas"}
+                                </p>
+                              </div>
+
+                              <div className="rounded-2xl border border-violet-200 bg-violet-100 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wider text-violet-800">
+                                  Tiempo límite
+                                </p>
+
+                                <p className="mt-2 text-2xl font-semibold text-slate-950">
+                                  {formatearTiempoMinutos(
+                                    simulador.tiempo_minutos
+                                  )}
+                                </p>
+                              </div>
+
+                              <div className="rounded-2xl border border-slate-300 bg-slate-100 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                                  Estado
+                                </p>
+
+                                <p className="mt-2 text-2xl font-semibold text-slate-950">
+                                  {estado}
+                                </p>
+                              </div>
+                            </div>
 
                             {estado === "En progreso" && (
-                              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
-                                Avance guardado
-                              </span>
+                              <div className="mt-5 rounded-3xl border border-amber-300 bg-amber-100 p-5">
+                                <div className="flex flex-wrap justify-between gap-2 text-sm">
+                                  <span className="font-bold text-amber-900">
+                                    Avance actual
+                                  </span>
+
+                                  <span className="font-bold text-amber-900">
+                                    {porcentajeAvance}%
+                                  </span>
+                                </div>
+
+                                <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
+                                  <div
+                                    className="h-full rounded-full bg-amber-500"
+                                    style={{ width: `${porcentajeAvance}%` }}
+                                  />
+                                </div>
+
+                                <p className="mt-3 text-sm leading-6 text-amber-900">
+                                  {respuestasGuardadas} respuestas guardadas
+                                  {marcadasGuardadas > 0
+                                    ? ` · ${marcadasGuardadas} marcadas para revisar`
+                                    : ""}{" "}
+                                  {typeof avance?.segundos_restantes ===
+                                  "number"
+                                    ? ` · ${formatearTiempoSegundos(
+                                        avance.segundos_restantes
+                                      )} restantes`
+                                    : ""}
+                                </p>
+                              </div>
                             )}
 
-                            {estado === "Completado" && (
-                              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
-                                Último intento
-                              </span>
+                            {estado === "Completado" && resultado && (
+                              <div className="mt-5 rounded-3xl border border-emerald-300 bg-emerald-100 p-5">
+                                <p className="text-sm font-bold text-emerald-900">
+                                  Último resultado
+                                </p>
+
+                                <p className="mt-2 text-3xl font-semibold text-slate-950">
+                                  {obtenerPuntaje(resultado)} / {PUNTAJE_MAXIMO}{" "}
+                                  puntos
+                                </p>
+
+                                <p className="mt-2 text-sm leading-6 text-emerald-900">
+                                  {resultado.correctas ?? 0} de{" "}
+                                  {resultado.total_preguntas ?? totalPreguntas}{" "}
+                                  aciertos · Tiempo usado:{" "}
+                                  {formatearTiempoSegundos(
+                                    resultado.tiempo_usado_segundos
+                                  )}
+                                </p>
+
+                                <p className="mt-1 text-xs font-semibold text-emerald-800">
+                                  {formatearFecha(resultado.created_at)}
+                                </p>
+                              </div>
                             )}
                           </div>
-
-                          <h2 className="mt-3 text-2xl font-black">
-                            {obtenerTitulo(simulador)}
-                          </h2>
-
-                          {obtenerDescripcion(simulador) && (
-                            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                              {obtenerDescripcion(simulador)}
-                            </p>
-                          )}
-
-                          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-2xl bg-slate-50 p-4">
-                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                                Preguntas
-                              </p>
-                              <p className="mt-1 text-xl font-black">
-                                {totalPreguntas > 0
-                                  ? totalPreguntas
-                                  : "Sin preguntas"}
-                              </p>
-                            </div>
-
-                            <div className="rounded-2xl bg-slate-50 p-4">
-                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                                Tiempo límite
-                              </p>
-                              <p className="mt-1 text-xl font-black">
-                                {formatearTiempoMinutos(
-                                  simulador.tiempo_minutos
-                                )}
-                              </p>
-                            </div>
-
-                            <div className="rounded-2xl bg-slate-50 p-4">
-                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                                Estado
-                              </p>
-                              <p className="mt-1 text-xl font-black">
-                                {estado}
-                              </p>
-                            </div>
-                          </div>
-
-                          {estado === "En progreso" && (
-                            <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 p-4">
-                              <div className="flex flex-wrap justify-between gap-2 text-sm">
-                                <span className="font-bold text-amber-800">
-                                  Avance actual
-                                </span>
-                                <span className="font-bold text-amber-800">
-                                  {porcentajeAvance}%
-                                </span>
-                              </div>
-
-                              <div className="mt-2 h-2 overflow-hidden rounded-full bg-amber-100">
-                                <div
-                                  className="h-full rounded-full bg-amber-500"
-                                  style={{ width: `${porcentajeAvance}%` }}
-                                />
-                              </div>
-
-                              <p className="mt-3 text-sm leading-6 text-amber-800">
-                                {respuestasGuardadas} respuestas guardadas
-                                {marcadasGuardadas > 0
-                                  ? ` · ${marcadasGuardadas} marcadas para revisar`
-                                  : ""}{" "}
-                                {typeof avance?.segundos_restantes === "number"
-                                  ? ` · ${formatearTiempoSegundos(
-                                      avance.segundos_restantes
-                                    )} restantes`
-                                  : ""}
-                              </p>
-                            </div>
-                          )}
-
-                          {estado === "Completado" && resultado && (
-                            <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                              <p className="text-sm font-bold text-emerald-800">
-                                Último resultado
-                              </p>
-
-                              <p className="mt-1 text-2xl font-black text-slate-900">
-                                {obtenerPuntaje(resultado)} / {PUNTAJE_MAXIMO}{" "}
-                                puntos
-                              </p>
-
-                              <p className="mt-1 text-sm leading-6 text-emerald-800">
-                                {resultado.correctas ?? 0} de{" "}
-                                {resultado.total_preguntas ?? totalPreguntas}{" "}
-                                aciertos · Tiempo usado:{" "}
-                                {formatearTiempoSegundos(
-                                  resultado.tiempo_usado_segundos
-                                )}
-                              </p>
-
-                              <p className="mt-1 text-xs text-emerald-700">
-                                {formatearFecha(resultado.created_at)}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex shrink-0 flex-col gap-3 xl:w-52">
-                          <Link
-                            href={obtenerHrefPrincipal(simulador)}
-                            className={`rounded-2xl px-5 py-3 text-center text-sm font-black transition ${obtenerClasesBoton(
-                              simulador
-                            )}`}
-                          >
-                            {obtenerTextoBotonPrincipal(simulador)}
-                          </Link>
-
-                          {(estado === "En progreso" ||
-                            estado === "Completado") && (
-                            <Link
-                              href={obtenerHrefNuevoIntento(simulador)}
-                              onClick={(event) =>
-                                confirmarNuevoIntento(event, simulador)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-center text-sm font-bold text-slate-700 hover:bg-slate-50"
-                            >
-                              Nuevo intento
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </section>
-            )}
-          </div>
-
-          <aside className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-black">Resumen</h2>
-
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-slate-50 p-4 text-center">
-                  <p className="text-3xl font-black">{resumen.total}</p>
-                  <p className="text-xs font-bold text-slate-500">
-                    Simuladores
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-amber-50 p-4 text-center">
-                  <p className="text-3xl font-black">
-                    {resumen.enProgreso}
-                  </p>
-                  <p className="text-xs font-bold text-amber-700">
-                    En progreso
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-emerald-50 p-4 text-center">
-                  <p className="text-3xl font-black">
-                    {resumen.completados}
-                  </p>
-                  <p className="text-xs font-bold text-emerald-700">
-                    Completados
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-blue-50 p-4 text-center">
-                  <p className="text-3xl font-black">
-                    {resumen.mejorPuntaje}
-                  </p>
-                  <p className="text-xs font-bold text-blue-700">
-                    Mejor puntaje
-                  </p>
-                </div>
+                        </article>
+                      );
+                    })}
+                  </section>
+                )}
               </div>
-            </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-black">Últimos resultados</h2>
+              <aside className="space-y-5">
+                <section className="rounded-[2rem] border border-slate-300 bg-white p-5 shadow-sm">
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    Últimos resultados
+                  </h2>
 
-              {todosResultados.length === 0 ? (
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Cuando termines un simulador, tus resultados aparecerán aquí.
-                </p>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {todosResultados.slice(0, 3).map((resultado) => {
-                    const nombreSimulador =
-                      simuladores.find(
-                        (item) =>
-                          String(item.id) === String(resultado.simulador_id)
-                      ) ?? null;
+                  {todosResultados.length === 0 ? (
+                    <p className="mt-3 text-sm leading-6 text-slate-600">
+                      Cuando termines un simulador, tus resultados aparecerán
+                      aquí.
+                    </p>
+                  ) : (
+                    <div className="mt-4 space-y-3">
+                      {todosResultados.slice(0, 3).map((resultado) => {
+                        const nombreSimulador =
+                          simuladores.find(
+                            (item) =>
+                              String(item.id) === String(resultado.simulador_id)
+                          ) ?? null;
 
-                    return (
+                        return (
+                          <Link
+                            key={resultado.id}
+                            href={obtenerHrefResultado(resultado)}
+                            className="block rounded-2xl border border-slate-200 bg-slate-100 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 hover:shadow-sm"
+                          >
+                            <p className="font-semibold text-slate-950">
+                              {nombreSimulador
+                                ? obtenerTitulo(nombreSimulador)
+                                : `Simulador ${resultado.simulador_id}`}
+                            </p>
+
+                            <p className="mt-1 text-sm text-slate-700">
+                              {obtenerPuntaje(resultado)} / {PUNTAJE_MAXIMO}{" "}
+                              puntos · {resultado.correctas ?? 0} aciertos
+                            </p>
+
+                            <p className="mt-1 text-xs text-slate-500">
+                              {formatearFecha(resultado.created_at)}
+                            </p>
+
+                            <p className="mt-2 text-xs font-bold text-blue-700">
+                              Ver detalle del intento →
+                            </p>
+                          </Link>
+                        );
+                      })}
+
                       <Link
-                        key={resultado.id}
-                        href={obtenerHrefResultado(resultado)}
-                        className="block rounded-2xl bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-sm"
+                        href="/resultados"
+                        className="inline-flex text-sm font-bold text-blue-700 hover:text-blue-500"
                       >
-                        <p className="font-bold">
-                          {nombreSimulador
-                            ? obtenerTitulo(nombreSimulador)
-                            : `Simulador ${resultado.simulador_id}`}
-                        </p>
-
-                        <p className="mt-1 text-sm text-slate-600">
-                          {obtenerPuntaje(resultado)} / {PUNTAJE_MAXIMO} puntos
-                          · {resultado.correctas ?? 0} aciertos
-                        </p>
-
-                        <p className="mt-1 text-xs text-slate-400">
-                          {formatearFecha(resultado.created_at)}
-                        </p>
-
-                        <p className="mt-2 text-xs font-bold text-blue-600">
-                          Ver detalle del intento →
-                        </p>
+                        Ver todos los resultados →
                       </Link>
-                    );
-                  })}
+                    </div>
+                  )}
+                </section>
 
-                  <Link
-                    href="/resultados"
-                    className="inline-flex text-sm font-bold text-blue-600 hover:text-blue-500"
-                  >
-                    Ver todos los resultados →
-                  </Link>
-                </div>
-              )}
-            </section>
+                <section className="rounded-[2rem] border border-slate-300 bg-white p-5 shadow-sm">
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    Consejo
+                  </h2>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-black">Consejo</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    Si no puedes terminar un simulador, usa{" "}
+                    <span className="font-bold text-slate-950">
+                      Volver a simuladores
+                    </span>{" "}
+                    y elige{" "}
+                    <span className="font-bold text-slate-950">
+                      Guardar avance
+                    </span>
+                    . Podrás continuar después con tus respuestas y tiempo
+                    restante.
+                  </p>
 
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Si no puedes terminar un simulador, usa{" "}
-                <span className="font-bold text-slate-900">
-                  Volver a simuladores
-                </span>{" "}
-                y elige{" "}
-                <span className="font-bold text-slate-900">Guardar avance</span>
-                . Podrás continuar después con tus respuestas y tiempo restante.
-              </p>
-            </section>
-          </aside>
+                  <div className="mt-5 flex items-end justify-center gap-2 rounded-3xl border border-blue-200 bg-blue-100 p-5">
+                    <span className="text-5xl">🖥️</span>
+                    <span className="text-4xl">📝</span>
+                    <span className="text-3xl">⏱️</span>
+                  </div>
+                </section>
+              </aside>
+            </div>
+          </div>
         </section>
       </main>
     </AlumnoProtegido>
+  );
+}
+
+function ResumenCard({
+  icono,
+  valor,
+  texto,
+  color,
+}: {
+  icono: string;
+  valor: string | number;
+  texto: string;
+  color: "slate" | "amber" | "emerald" | "blue";
+}) {
+  const estilos = {
+    slate: {
+      contenedor: "border-slate-300 bg-slate-100 text-slate-700",
+      icono: "bg-white text-slate-700",
+    },
+    amber: {
+      contenedor: "border-amber-300 bg-amber-100 text-amber-800",
+      icono: "bg-white text-amber-700",
+    },
+    emerald: {
+      contenedor: "border-emerald-300 bg-emerald-100 text-emerald-800",
+      icono: "bg-white text-emerald-700",
+    },
+    blue: {
+      contenedor: "border-blue-300 bg-blue-100 text-blue-800",
+      icono: "bg-white text-blue-700",
+    },
+  };
+
+  return (
+    <div
+      className={`rounded-2xl border p-4 text-center shadow-sm ${estilos[color].contenedor}`}
+    >
+      <div
+        className={`mx-auto flex h-11 w-11 items-center justify-center rounded-2xl text-2xl shadow-sm ${estilos[color].icono}`}
+      >
+        {icono}
+      </div>
+
+      <p className="mt-3 text-3xl font-semibold leading-none text-slate-950">
+        {valor}
+      </p>
+
+      <p className="mt-2 text-xs font-bold leading-tight">{texto}</p>
+    </div>
   );
 }

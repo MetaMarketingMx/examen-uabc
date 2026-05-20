@@ -113,13 +113,13 @@ export default function HeaderPrincipal() {
   return (
     <header className="border-b border-slate-200 bg-white/95 text-slate-950 shadow-sm backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        <Link href="/" className="block">
-          <p className="text-xs font-black uppercase tracking-[0.35em] text-blue-600">
+        <Link href="/" className="group block">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">
             Plataforma académica
           </p>
 
-          <h1 className="mt-1 text-2xl font-black tracking-tight">
-            Examen UABC
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 transition group-hover:text-blue-700">
+            UNIMED
           </h1>
         </Link>
 
@@ -131,10 +131,10 @@ export default function HeaderPrincipal() {
               <Link
                 key={ruta.href}
                 href={ruta.href}
-                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${
+                className={`rounded-2xl border px-4 py-2.5 text-sm font-semibold transition ${
                   activa
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                 }`}
               >
                 {ruta.label}
@@ -146,7 +146,7 @@ export default function HeaderPrincipal() {
             <button
               type="button"
               onClick={cerrarSesion}
-              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-black text-red-600 transition hover:bg-red-100"
+              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100"
             >
               Cerrar sesión
             </button>
@@ -155,7 +155,7 @@ export default function HeaderPrincipal() {
           {!cargandoSesion && !usuario && (
             <Link
               href="/login"
-              className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+              className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
             >
               Iniciar sesión
             </Link>

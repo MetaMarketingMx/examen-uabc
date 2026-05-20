@@ -803,7 +803,7 @@ export default function SimuladorAlumnoPage() {
               </p>
 
               <p className="mt-2 text-sm text-slate-300">
-                El puntaje obtenido, al igual que el examen de la UABC, no
+                El puntaje obtenido, de forma similar al examen de admisión, no
                 evalúa necesariamente todas las preguntas del simulador. Se
                 calcula con base en el desempeño del alumno y tiene un máximo de{" "}
                 {PUNTAJE_MAXIMO} puntos.

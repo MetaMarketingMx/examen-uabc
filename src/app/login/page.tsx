@@ -199,79 +199,110 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
-      <div className="mx-auto max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
-        <h1 className="text-2xl font-bold">Iniciar sesión</h1>
+    <main className="min-h-[calc(100vh-96px)] bg-[#f6f8fc] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <section className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center">
+        <div className="w-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+          <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 p-7 text-white">
+            <div className="relative z-10">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
+                Plataforma académica
+              </p>
 
-        <p className="mt-2 text-sm text-slate-300">
-          Ingresa con tu correo electrónico o nombre de usuario para acceder a
-          la plataforma.
-        </p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+                Iniciar sesión
+              </h1>
 
-        {mensaje && (
-          <div className="mt-5 rounded-lg border border-yellow-500 bg-yellow-950 p-4 text-sm text-yellow-200">
-            {mensaje}
-          </div>
-        )}
+              <p className="mt-3 text-sm leading-6 text-blue-50">
+                Ingresa con tu correo electrónico o nombre de usuario para
+                acceder a la plataforma.
+              </p>
+            </div>
 
-        {error && (
-          <div className="mt-5 rounded-lg border border-red-500 bg-red-950 p-4 text-sm text-red-200">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={iniciarSesion} className="mt-6 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-200">
-              Correo electrónico o usuario
-            </label>
-            <input
-              type="text"
-              value={identificador}
-              onChange={(e) => setIdentificador(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-              placeholder="correo@ejemplo.com o alias"
-            />
+            <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
+            <div className="absolute -bottom-12 left-64 h-40 w-40 rounded-full bg-white/10" />
+            <div className="absolute right-12 top-10 h-8 w-8 rotate-12 rounded-xl bg-emerald-300/50" />
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-200">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-              placeholder="Tu contraseña"
-            />
+          <div className="p-6 sm:p-7">
+            {mensaje && (
+              <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                {mensaje}
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={iniciarSesion} className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-slate-700">
+                  Correo electrónico o usuario
+                </label>
+
+                <input
+                  type="text"
+                  value={identificador}
+                  onChange={(e) => setIdentificador(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:bg-white"
+                  placeholder="correo@ejemplo.com o alias"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-slate-700">
+                  Contraseña
+                </label>
+
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:bg-white"
+                  placeholder="Tu contraseña"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={cargando}
+                className="w-full rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cargando ? "Verificando acceso..." : "Iniciar sesión"}
+              </button>
+            </form>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <a
+                href="/recuperar-contrasena"
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                ¿Olvidaste tu contraseña?
+              </a>
+
+              <a
+                href="/registro"
+                className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-center text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+              >
+                Solicitar registro
+              </a>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm font-semibold text-blue-700">
+                Acceso para alumnos
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-blue-700">
+                Si tu registro aún no ha sido aprobado, verás un aviso y deberás
+                esperar la validación de administración.
+              </p>
+            </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={cargando}
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-          >
-            {cargando ? "Verificando acceso..." : "Iniciar sesión"}
-          </button>
-        </form>
-
-        <div className="mt-6 space-y-3 text-sm">
-          <a
-            href="/recuperar-contrasena"
-            className="block text-center font-semibold text-blue-300 hover:text-blue-200"
-          >
-            ¿Olvidaste tu contraseña?
-          </a>
-
-          <a
-            href="/registro"
-            className="block rounded-lg border border-slate-600 px-4 py-3 text-center font-semibold text-white hover:bg-slate-800"
-          >
-            Solicitar registro de alumno
-          </a>
         </div>
-      </div>
+      </section>
     </main>
   );
 }

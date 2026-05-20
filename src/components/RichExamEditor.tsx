@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+} from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 const BUCKET_IMAGENES = "imagenes-examenes";
@@ -46,6 +51,8 @@ export function RichExamEditor({
   function limpiarNombreArchivo(nombre: string) {
     return nombre
       .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9.\-_]/g, "-")
       .replace(/-+/g, "-");
   }
@@ -58,34 +65,44 @@ export function RichExamEditor({
 
     setSubiendo(true);
 
-    const nombreLimpio = limpiarNombreArchivo(archivo.name || "imagen.png");
-    const ruta = `${folder}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}-${nombreLimpio}`;
+    try {
+      const nombreLimpio = limpiarNombreArchivo(archivo.name || "imagen.png");
+      const ruta = `${folder}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}-${nombreLimpio}`;
 
-    const { error } = await supabase.storage
-      .from(BUCKET_IMAGENES)
-      .upload(ruta, archivo, {
-        cacheControl: "3600",
-        upsert: true,
-      });
+      const { error } = await supabase.storage
+        .from(BUCKET_IMAGENES)
+        .upload(ruta, archivo, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: archivo.type || undefined,
+        });
 
-    if (error) {
-      console.error("Error subiendo imagen:", error);
+      if (error) {
+        console.error("Error subiendo imagen:", error);
+        alert("No se pudo subir la imagen.");
+        return "";
+      }
+
+      const { data } = supabase.storage
+        .from(BUCKET_IMAGENES)
+        .getPublicUrl(ruta);
+
+      return data.publicUrl;
+    } catch (err) {
+      console.error("Error inesperado subiendo imagen:", err);
       alert("No se pudo subir la imagen.");
-      setSubiendo(false);
       return "";
+    } finally {
+      setSubiendo(false);
     }
-
-    const { data } = supabase.storage.from(BUCKET_IMAGENES).getPublicUrl(ruta);
-
-    setSubiendo(false);
-    return data.publicUrl;
   }
 
   function actualizarValor() {
     const editor = editorRef.current;
     if (!editor) return;
+
     onChange(editor.innerHTML);
   }
 
@@ -108,10 +125,10 @@ export function RichExamEditor({
     editor.focus();
 
     const htmlImagen = `
-      <img 
-        src="${url}" 
-        alt="imagen" 
-        style="max-width:100%;height:auto;border-radius:12px;margin:12px 0;border:1px solid #334155;" 
+      <img
+        src="${url}"
+        alt="imagen"
+        style="max-width:100%;height:auto;border-radius:12px;margin:12px 0;border:1px solid #cbd5e1;"
       />
     `;
 
@@ -121,6 +138,7 @@ export function RichExamEditor({
 
   async function manejarArchivoSeleccionado(archivo: File | null) {
     if (!archivo) return;
+
     await insertarImagen(archivo);
 
     if (fileInputRef.current) {
@@ -128,7 +146,7 @@ export function RichExamEditor({
     }
   }
 
-  async function manejarPegado(e: React.ClipboardEvent<HTMLDivElement>) {
+  async function manejarPegado(e: ClipboardEvent<HTMLDivElement>) {
     const items = Array.from(e.clipboardData.items);
     const imagenes = items.filter((item) => item.type.startsWith("image/"));
 
@@ -140,6 +158,7 @@ export function RichExamEditor({
 
     for (const item of imagenes) {
       const archivo = item.getAsFile();
+
       if (archivo) {
         await insertarImagen(archivo);
       }
@@ -147,7 +166,10 @@ export function RichExamEditor({
   }
 
   function limpiarTodo() {
-    const confirmar = confirm("¿Seguro que quieres borrar todo el contenido de este campo?");
+    const confirmar = confirm(
+      "¿Seguro que quieres borrar todo el contenido de este campo?"
+    );
+
     if (!confirmar) return;
 
     if (editorRef.current) {
@@ -158,8 +180,8 @@ export function RichExamEditor({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-      <label className="mb-3 block text-sm font-bold text-slate-200">
+    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <label className="mb-3 block text-sm font-semibold text-slate-700">
         {label}
       </label>
 
@@ -167,7 +189,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => ejecutarComando("bold")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
         >
           Negrita
         </button>
@@ -175,7 +197,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => ejecutarComando("italic")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold italic text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
         >
           Cursiva
         </button>
@@ -183,7 +205,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => ejecutarComando("underline")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 underline transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
         >
           Subrayar
         </button>
@@ -191,7 +213,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => ejecutarComando("justifyLeft")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
         >
           Izq.
         </button>
@@ -199,7 +221,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => ejecutarComando("justifyCenter")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
         >
           Centrar
         </button>
@@ -207,7 +229,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => ejecutarComando("justifyRight")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
         >
           Der.
         </button>
@@ -215,7 +237,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => ejecutarComando("insertUnorderedList")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
         >
           Lista
         </button>
@@ -223,7 +245,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => ejecutarComando("formatBlock", "h2")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
         >
           Título
         </button>
@@ -234,7 +256,7 @@ export function RichExamEditor({
             ejecutarComando("fontSize", e.target.value);
             e.target.value = "";
           }}
-          className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-white"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400"
           defaultValue=""
         >
           <option value="">Tamaño</option>
@@ -247,15 +269,16 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-lg border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-950"
+          disabled={subiendo}
+          className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Subir imagen
+          {subiendo ? "Subiendo..." : "Subir imagen"}
         </button>
 
         <button
           type="button"
           onClick={() => ejecutarComando("removeFormat")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold hover:bg-slate-800"
+          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
         >
           Limpiar formato
         </button>
@@ -263,7 +286,7 @@ export function RichExamEditor({
         <button
           type="button"
           onClick={limpiarTodo}
-          className="rounded-lg border border-red-800 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950"
+          className="rounded-2xl border border-red-100 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
         >
           Borrar campo
         </button>
@@ -274,11 +297,13 @@ export function RichExamEditor({
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => manejarArchivoSeleccionado(e.target.files?.[0] ?? null)}
+        onChange={(e) =>
+          manejarArchivoSeleccionado(e.target.files?.[0] ?? null)
+        }
       />
 
       {subiendo && (
-        <p className="mb-2 rounded-lg border border-yellow-700 bg-yellow-950/30 px-3 py-2 text-sm text-yellow-300">
+        <p className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
           Subiendo imagen...
         </p>
       )}
@@ -290,17 +315,23 @@ export function RichExamEditor({
         onInput={actualizarValor}
         onPaste={manejarPegado}
         data-placeholder={placeholder || ""}
-        className="rich-exam-editor min-h-[150px] w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-blue-500"
+        className="rich-exam-editor min-h-[150px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
       />
 
-      <p className="mt-3 text-xs text-slate-400">
-        Puedes escribir con formato, subir imagen o pegar imagen directamente con Ctrl + V.
+      <p className="mt-3 text-xs leading-5 text-slate-500">
+        Puedes escribir con formato, subir imagen o pegar imagen directamente
+        con Ctrl + V.
       </p>
 
       <style jsx>{`
+        .rich-exam-editor {
+          line-height: 1.7;
+          font-size: 15px;
+        }
+
         .rich-exam-editor:empty::before {
           content: attr(data-placeholder);
-          color: #64748b;
+          color: #94a3b8;
         }
 
         .rich-exam-editor img {
@@ -308,18 +339,43 @@ export function RichExamEditor({
           height: auto;
           border-radius: 12px;
           margin: 12px 0;
-          border: 1px solid #334155;
+          border: 1px solid #cbd5e1;
         }
 
         .rich-exam-editor h2 {
           font-size: 1.5rem;
           font-weight: 800;
           margin: 0.5rem 0;
+          color: #020617;
+        }
+
+        .rich-exam-editor p {
+          margin: 0.5rem 0;
         }
 
         .rich-exam-editor ul {
           list-style: disc;
           padding-left: 1.5rem;
+          margin: 0.75rem 0;
+        }
+
+        .rich-exam-editor ol {
+          list-style: decimal;
+          padding-left: 1.5rem;
+          margin: 0.75rem 0;
+        }
+
+        .rich-exam-editor a {
+          color: #2563eb;
+          text-decoration: underline;
+        }
+
+        .rich-exam-editor font[size="5"] {
+          font-size: 1.5rem;
+        }
+
+        .rich-exam-editor font[size="6"] {
+          font-size: 2rem;
         }
       `}</style>
     </div>

@@ -3,8 +3,8 @@ import "./globals.css";
 import HeaderPrincipal from "@/components/HeaderPrincipal";
 
 export const metadata: Metadata = {
-  title: "Examen UABC",
-  description: "Plataforma académica para preparación de examen UABC",
+  title: "UNIMED",
+  description: "UNIMED | Curso para examen de admisión a UABC",
 };
 
 export default function RootLayout({
